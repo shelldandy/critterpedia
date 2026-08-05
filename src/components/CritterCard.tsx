@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { iconUrl } from '../data/critters.ts';
 import type { Hemisphere } from '../data/types.ts';
-import { windowFor } from '../domain/availability.ts';
+import { isAvailableNow, windowFor } from '../domain/availability.ts';
 import type { Urgency } from '../domain/urgency.ts';
 
 const KIND_LABEL: Record<string, string> = {
@@ -44,15 +44,28 @@ const IconWithFallback = ({ src, alt }: { src: string; alt: string }) => {
 export const CritterCard = ({
   urgency,
   hemisphere,
+  now,
 }: {
   urgency: Urgency;
   hemisphere: Hemisphere;
+  /** Supplied only in the All-critters view, where entries may be out of season. */
+  now?: Date;
 }) => {
   const { critter: c, hoursLeft, leavingThisMonth, closingSoon } = urgency;
   const w = windowFor(c, hemisphere);
+  /*
+    In the "now" scope everything listed is catchable, so no badge is needed. In the "all"
+    scope the list is mostly *not* catchable, and a card that looks identical either way
+    would be a confident wrong answer — the one thing the README forbids.
+  */
+  const unavailable = now !== undefined && !isAvailableNow(c, now, hemisphere);
 
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+    <li
+      className={`flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 ${
+        unavailable ? 'opacity-60' : ''
+      }`}
+    >
       <IconWithFallback src={iconUrl(c)} alt="" />
 
       <div className="min-w-0 flex-1">
@@ -88,12 +101,17 @@ export const CritterCard = ({
           {c.sell.toLocaleString()}
           <span className="ml-0.5 text-xs font-normal text-slate-500">bells</span>
         </span>
-        {closingSoon && hoursLeft !== null && (
+        {unavailable && (
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            Not now
+          </span>
+        )}
+        {!unavailable && closingSoon && hoursLeft !== null && (
           <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
             {hoursLeft}h left today
           </span>
         )}
-        {leavingThisMonth && !closingSoon && (
+        {!unavailable && leavingThisMonth && !closingSoon && (
           <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-semibold text-orange-700 dark:bg-orange-950 dark:text-orange-300">
             Last month
           </span>

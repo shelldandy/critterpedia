@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
 
 import { CRITTERS } from '../data/critters.ts';
-import type { Hemisphere, Kind } from '../data/types.ts';
-import { BAND_LABELS, BAND_ORDER, groupByBand, rankCatchableNow } from '../domain/urgency.ts';
+import type { Hemisphere } from '../data/types.ts';
+import {
+  EMPTY_FILTER,
+  isFilterActive,
+  keepsBands,
+  selectCritters,
+  type CritterFilter,
+} from '../domain/filters.ts';
+import { BAND_LABELS, BAND_ORDER, groupByBand } from '../domain/urgency.ts';
 import { CritterCard } from './CritterCard.tsx';
-
-const KINDS: ReadonlyArray<{ key: Kind; label: string }> = [
-  { key: 'fish', label: 'Fish' },
-  { key: 'bug', label: 'Bugs' },
-  { key: 'sea', label: 'Sea' },
-];
+import { FilterBar } from './FilterBar.tsx';
 
 const BAND_ACCENT: Record<string, string> = {
   closing: 'text-rose-700 dark:text-rose-400',
@@ -18,81 +20,87 @@ const BAND_ACCENT: Record<string, string> = {
   rest: 'text-slate-500 dark:text-slate-400',
 };
 
-export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemisphere }) => {
-  const [kinds, setKinds] = useState<Set<Kind>>(new Set(['fish', 'bug', 'sea']));
-
-  const ranked = useMemo(
-    () => rankCatchableNow(CRITTERS, now, hemisphere),
-    [now, hemisphere],
+/** Distinguishes "nothing is out at this hour" from "your filters excluded everything". */
+const EmptyState = ({ filter }: { filter: CritterFilter }) => {
+  const filtered = isFilterActive(filter);
+  return (
+    <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
+      {filtered
+        ? 'No critters match these filters. Try clearing one.'
+        : 'Nothing is catchable at this hour. Try another time.'}
+    </p>
   );
+};
+
+export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemisphere }) => {
+  const [filter, setFilter] = useState<CritterFilter>(EMPTY_FILTER);
+
   const visible = useMemo(
-    () => ranked.filter((u) => kinds.has(u.critter.kind)),
-    [ranked, kinds],
+    () => selectCritters(CRITTERS, filter, now, hemisphere),
+    [filter, now, hemisphere],
   );
   const grouped = useMemo(() => groupByBand(visible), [visible]);
 
-  const toggle = (k: Kind) =>
-    setKinds((prev) => {
-      const next = new Set(prev);
-      // Never let the user filter down to nothing — re-selecting the last kind is a no-op.
-      if (next.has(k) && next.size > 1) next.delete(k);
-      else next.add(k);
-      return next;
-    });
+  /*
+    Clearing keeps `scope` and `sort`: those answer "which question am I asking" and "in
+    what order", not "which subset". Resetting them would yank the view out from under a
+    user who only wanted to drop a shadow chip.
+  */
+  const clear = () =>
+    setFilter((f) => ({ ...EMPTY_FILTER, scope: f.scope, sort: f.sort }));
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-4">
-      <div className="mb-3 flex items-center gap-2">
-        <p className="mr-auto text-sm text-slate-600 dark:text-slate-400">
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {visible.length}
-          </span>{' '}
-          catchable right now
-        </p>
-        <div className="flex gap-1.5">
-          {KINDS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={kinds.has(key)}
-              onClick={() => toggle(key)}
-              className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
-                kinds.has(key)
-                  ? 'border-accent-600 bg-accent-50 text-accent-700 dark:bg-slate-800 dark:text-accent-600'
-                  : 'border-slate-300 bg-white text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilterBar
+        filter={filter}
+        onChange={setFilter}
+        onClear={clear}
+        resultCount={visible.length}
+      />
 
-      {visible.length === 0 && (
-        <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-          Nothing is catchable at this hour. Try another time.
-        </p>
-      )}
+      {visible.length === 0 && <EmptyState filter={filter} />}
 
-      {BAND_ORDER.map((band) => {
-        const items = grouped.get(band) ?? [];
-        if (items.length === 0) return null;
-        return (
-          <div key={band} className="mb-5">
-            <h2
-              className={`mb-2 text-xs font-semibold tracking-wide uppercase ${BAND_ACCENT[band]}`}
-            >
-              {BAND_LABELS[band]}{' '}
-              <span className="font-normal opacity-70">({items.length})</span>
-            </h2>
+      {/*
+        Bands only survive the urgency sort. Under any explicit sort the list flattens, so
+        "sorted by price" means price order end to end rather than price-within-band.
+      */}
+      {keepsBands(filter.sort)
+        ? BAND_ORDER.map((band) => {
+            const items = grouped.get(band) ?? [];
+            if (items.length === 0) return null;
+            return (
+              <div key={band} className="mb-5">
+                <h2
+                  className={`mb-2 text-xs font-semibold tracking-wide uppercase ${BAND_ACCENT[band]}`}
+                >
+                  {BAND_LABELS[band]}{' '}
+                  <span className="font-normal opacity-70">({items.length})</span>
+                </h2>
+                <ul className="flex flex-col gap-2">
+                  {items.map((u) => (
+                    <CritterCard
+                      key={u.critter.id}
+                      urgency={u}
+                      hemisphere={hemisphere}
+                      now={filter.scope === 'all' ? now : undefined}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })
+        : visible.length > 0 && (
             <ul className="flex flex-col gap-2">
-              {items.map((u) => (
-                <CritterCard key={u.critter.id} urgency={u} hemisphere={hemisphere} />
+              {visible.map((u) => (
+                <CritterCard
+                  key={u.critter.id}
+                  urgency={u}
+                  hemisphere={hemisphere}
+                  now={filter.scope === 'all' ? now : undefined}
+                />
               ))}
             </ul>
-          </div>
-        );
-      })}
+          )}
     </section>
   );
 };

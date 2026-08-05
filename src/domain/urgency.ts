@@ -57,7 +57,7 @@ export const urgencyOf = (
  * Most-urgent first. Ties break toward the rarer critter, then the more valuable one,
  * so a grinder's limited time goes to the entries hardest to get back.
  */
-const compareUrgency = (a: Urgency, b: Urgency): number =>
+export const compareUrgency = (a: Urgency, b: Urgency): number =>
   Number(b.closingSoon) - Number(a.closingSoon) ||
   Number(b.leavingThisMonth) - Number(a.leavingThisMonth) ||
   (a.hoursLeft ?? 99) - (b.hoursLeft ?? 99) ||
