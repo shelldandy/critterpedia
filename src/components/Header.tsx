@@ -1,4 +1,6 @@
 import { useSettings } from '../store/useSettings.ts';
+import { SchemePicker } from './SchemePicker.tsx';
+import { ThemePicker } from './ThemePicker.tsx';
 
 /** `<input type="datetime-local">` wants local wall-clock time, not a UTC ISO string. */
 const toLocalInput = (d: Date): string => {
@@ -29,7 +31,7 @@ export const Header = ({ now }: { now: Date }) => {
               onClick={() => setHemisphere(h)}
               className={`px-2.5 py-1.5 font-medium capitalize ${
                 hemisphere === h
-                  ? 'bg-leaf-600 text-white'
+                  ? 'bg-accent-600 text-white'
                   : 'bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
@@ -50,12 +52,15 @@ export const Header = ({ now }: { now: Date }) => {
             <button
               type="button"
               onClick={() => setClockOverride(null)}
-              className="rounded-lg px-2 py-1 text-xs font-medium text-leaf-700 hover:bg-leaf-50 dark:text-leaf-600 dark:hover:bg-slate-800"
+              className="rounded-lg px-2 py-1 text-xs font-medium text-accent-700 hover:bg-accent-50 dark:text-accent-600 dark:hover:bg-slate-800"
             >
               Now
             </button>
           )}
         </div>
+
+        <SchemePicker />
+        <ThemePicker />
       </div>
 
       {clockOverride && (

@@ -14,7 +14,7 @@ const KINDS: ReadonlyArray<{ key: Kind; label: string }> = [
 const BAND_ACCENT: Record<string, string> = {
   closing: 'text-rose-700 dark:text-rose-400',
   leaving: 'text-orange-700 dark:text-orange-400',
-  new: 'text-leaf-700 dark:text-leaf-600',
+  new: 'text-accent-700 dark:text-accent-600',
   rest: 'text-slate-500 dark:text-slate-400',
 };
 
@@ -58,7 +58,7 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
               onClick={() => toggle(key)}
               className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
                 kinds.has(key)
-                  ? 'border-leaf-600 bg-leaf-50 text-leaf-700 dark:bg-slate-800 dark:text-leaf-600'
+                  ? 'border-accent-600 bg-accent-50 text-accent-700 dark:bg-slate-800 dark:text-accent-600'
                   : 'border-slate-300 bg-white text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500'
               }`}
             >

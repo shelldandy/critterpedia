@@ -1,15 +1,42 @@
 @import 'tailwindcss';
 
+/*
+  Tailwind 4 wires `dark:` to `prefers-color-scheme` by default, which a user choice can't
+  override. Redefine it to key off `data-scheme` on <html> so all 48 existing `dark:`
+  classes respond to the picker unchanged. In System mode JS resolves the OS preference
+  and writes the same attribute, so there is exactly one source of truth in the DOM.
+*/
+@custom-variant dark (&:where([data-scheme='dark'], [data-scheme='dark'] *));
+
+/*
+  The accent ramp is indirected through plain custom properties so it can be swapped at
+  runtime. Tailwind 4 inlines `@theme` values at build time, so `bg-accent-600` compiles
+  against `var(--accent-600)` and stays valid while JS rewrites that variable on <html>.
+  The fallbacks are the default (leaf) theme, so first paint is correct before JS runs.
+*/
 @theme {
-  --color-leaf-50: #f0fdf4;
-  --color-leaf-100: #dcfce7;
-  --color-leaf-600: #16a34a;
-  --color-leaf-700: #15803d;
+  --color-accent-50: var(--accent-50, #f0fdf4);
+  --color-accent-100: var(--accent-100, #dcfce7);
+  --color-accent-600: var(--accent-600, #16a34a);
+  --color-accent-700: var(--accent-700, #15803d);
 }
 
+/*
+  `color-scheme` styles UA-rendered chrome — scrollbars and the header's datetime picker.
+  It must track the resolved scheme, not the OS, or a user on Light with a dark OS gets a
+  dark calendar widget on a light page. The bare `light dark` is the pre-JS fallback.
+*/
 html {
   color-scheme: light dark;
   -webkit-text-size-adjust: 100%;
+}
+
+html[data-scheme='light'] {
+  color-scheme: light;
+}
+
+html[data-scheme='dark'] {
+  color-scheme: dark;
 }
 
 body {
