@@ -66,7 +66,17 @@ export interface Critter {
   /** `${kind}-${num}`. `num` is unique 1..N within each kind. */
   id: string;
   kind: Kind;
+  /**
+   * English (US) name. Stays the canonical key: ids, tests, and the `SHARED_NAMES` /
+   * `ES_PINS` build checks all key off this, never off a localized name.
+   */
   name: string;
+  /**
+   * Americas (Mexican) Spanish name, from upstream `translations.uSes` — NOT `eUes`,
+   * which is peninsular and differs for 4 critters (ladybug is `catarina`, not
+   * `mariquita`). See the note in `scripts/build-data.ts`.
+   */
+  nameEs: string;
   num: number;
   /** Sell price to Nooks. */
   sell: number;

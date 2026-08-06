@@ -9,7 +9,9 @@ import {
   selectCritters,
   type CritterFilter,
 } from '../domain/filters.ts';
-import { BAND_LABELS, BAND_ORDER, groupByBand } from '../domain/urgency.ts';
+import { BAND_ORDER, bandLabels, groupByBand } from '../domain/urgency.ts';
+import { useMessages } from '../i18n/useMessages.ts';
+import { useSettings } from '../store/useSettings.ts';
 import { CritterCard } from './CritterCard.tsx';
 import { FilterBar } from './FilterBar.tsx';
 
@@ -22,12 +24,11 @@ const BAND_ACCENT: Record<string, string> = {
 
 /** Distinguishes "nothing is out at this hour" from "your filters excluded everything". */
 const EmptyState = ({ filter }: { filter: CritterFilter }) => {
+  const { t } = useMessages();
   const filtered = isFilterActive(filter);
   return (
     <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-      {filtered
-        ? 'No critters match these filters. Try clearing one.'
-        : 'Nothing is catchable at this hour. Try another time.'}
+      {filtered ? t.emptyFiltered : t.emptyNothingNow}
     </p>
   );
 };
@@ -35,9 +36,18 @@ const EmptyState = ({ filter }: { filter: CritterFilter }) => {
 export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemisphere }) => {
   const [filter, setFilter] = useState<CritterFilter>(EMPTY_FILTER);
 
+  /*
+    `lang` is a real sort input, not just a display concern: it drives the name comparator
+    and every comparator's tiebreak, so it must be in the dependency list or switching
+    language would leave the list in the previous language's order.
+  */
+  const lang = useSettings((s) => s.lang);
+  const { t } = useMessages();
+  const BAND_LABELS = bandLabels(t);
+
   const visible = useMemo(
-    () => selectCritters(CRITTERS, filter, now, hemisphere),
-    [filter, now, hemisphere],
+    () => selectCritters(CRITTERS, filter, now, hemisphere, lang),
+    [filter, now, hemisphere, lang],
   );
   const grouped = useMemo(() => groupByBand(visible), [visible]);
 

@@ -6,6 +6,8 @@
  */
 
 import type { Critter, Hemisphere } from '../data/types.ts';
+import { localeOf, nameIn, type Lang } from '../i18n/lang.ts';
+import type { Messages } from '../i18n/messages.ts';
 import {
   hoursUntilGone,
   isAllDay,
@@ -56,15 +58,29 @@ export const urgencyOf = (
 /**
  * Most-urgent first. Ties break toward the rarer critter, then the more valuable one,
  * so a grinder's limited time goes to the entries hardest to get back.
+ *
+ * The final name tiebreak follows the display language so the visible order matches the
+ * visible names; it defaults to English, keeping this callable as a bare comparator.
  */
-export const compareUrgency = (a: Urgency, b: Urgency): number =>
-  Number(b.closingSoon) - Number(a.closingSoon) ||
-  Number(b.leavingThisMonth) - Number(a.leavingThisMonth) ||
-  (a.hoursLeft ?? 99) - (b.hoursLeft ?? 99) ||
-  a.monthsAvailable - b.monthsAvailable ||
-  a.hoursAvailable - b.hoursAvailable ||
-  b.critter.sell - a.critter.sell ||
-  a.critter.name.localeCompare(b.critter.name);
+export const compareUrgencyIn = (lang: Lang) => {
+  // One collator per sort, not per comparison — this is the default sort, so it runs on
+  // every render. `Intl.Collator` also orders "ñ" and accented vowels correctly in Spanish,
+  // which codepoint comparison does not.
+  const collator = new Intl.Collator(localeOf(lang), {
+    sensitivity: 'variant',
+    numeric: true,
+  });
+  return (a: Urgency, b: Urgency): number =>
+    Number(b.closingSoon) - Number(a.closingSoon) ||
+    Number(b.leavingThisMonth) - Number(a.leavingThisMonth) ||
+    (a.hoursLeft ?? 99) - (b.hoursLeft ?? 99) ||
+    a.monthsAvailable - b.monthsAvailable ||
+    a.hoursAvailable - b.hoursAvailable ||
+    b.critter.sell - a.critter.sell ||
+    collator.compare(nameIn(a.critter, lang), nameIn(b.critter, lang));
+};
+
+export const compareUrgency = compareUrgencyIn('en');
 
 /** Everything catchable at this exact moment, most urgent first. */
 export const rankCatchableNow = (
@@ -86,12 +102,13 @@ export const bandOf = (u: Urgency): UrgencyBand => {
   return 'rest';
 };
 
-export const BAND_LABELS: Record<UrgencyBand, string> = {
-  closing: 'Leaving within hours',
-  leaving: 'Last month to catch',
-  new: 'New this month',
-  rest: 'Also available now',
-};
+/** Band headings for a language; the band keys themselves stay language-independent. */
+export const bandLabels = (t: Messages): Record<UrgencyBand, string> => ({
+  closing: t.bandClosing,
+  leaving: t.bandLeaving,
+  new: t.bandNew,
+  rest: t.bandRest,
+});
 
 export const BAND_ORDER: readonly UrgencyBand[] = ['closing', 'leaving', 'new', 'rest'];
 

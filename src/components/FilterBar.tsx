@@ -2,25 +2,21 @@ import { useId, useState } from 'react';
 
 import type { Kind, Shadow, Weather, WhereGroup } from '../data/types.ts';
 import {
-  SORT_LABELS,
   SORT_ORDER,
   activeFilterCount,
   isFilterActive,
+  sortLabels,
   type CritterFilter,
   type Scope,
   type SortKey,
 } from '../domain/filters.ts';
+import { shadowLabel, weatherLabel, whereGroupLabel } from '../i18n/critterTerms.ts';
+import { localeOf } from '../i18n/lang.ts';
+import { useMessages } from '../i18n/useMessages.ts';
 
-const KINDS: ReadonlyArray<{ key: Kind; label: string }> = [
-  { key: 'fish', label: 'Fish' },
-  { key: 'bug', label: 'Bugs' },
-  { key: 'sea', label: 'Sea' },
-];
-
-const SCOPES: ReadonlyArray<{ key: Scope; label: string }> = [
-  { key: 'now', label: 'Now' },
-  { key: 'all', label: 'All critters' },
-];
+/* Keys are data; labels come from the catalog at render time so they follow the language. */
+const KIND_KEYS: readonly Kind[] = ['fish', 'bug', 'sea'];
+const SCOPE_KEYS: readonly Scope[] = ['now', 'all'];
 
 /*
   Ordered small→large, with the two shape-not-size shadows last and visually separated —
@@ -114,6 +110,14 @@ export const FilterBar = ({
   const [open, setOpen] = useState(false);
   const searchId = useId();
   const sortId = useId();
+  const { t, lang } = useMessages();
+  const SORT_LABELS = sortLabels(t);
+  const kindLabels: Record<Kind, string> = {
+    fish: t.kindFish,
+    bug: t.kindBugs,
+    sea: t.kindSea,
+  };
+  const scopeLabels: Record<Scope, string> = { now: t.scopeNow, all: t.scopeAll };
 
   const set = <K extends keyof CritterFilter>(key: K, value: CritterFilter[K]) =>
     onChange({ ...filter, [key]: value });
@@ -125,13 +129,13 @@ export const FilterBar = ({
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[10rem] flex-1">
           <label htmlFor={searchId} className="sr-only">
-            Search critters by name or location
+            {t.searchLabel}
           </label>
           <input
             id={searchId}
             type="search"
             value={filter.query}
-            placeholder="Search name or location…"
+            placeholder={t.searchPlaceholder}
             onChange={(e) => set('query', e.target.value)}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-accent-600 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
           />
@@ -139,30 +143,30 @@ export const FilterBar = ({
 
         <div
           role="group"
-          aria-label="Scope"
+          aria-label={t.scope}
           className="flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-600"
         >
-          {SCOPES.map((s) => (
+          {SCOPE_KEYS.map((key) => (
             <button
-              key={s.key}
+              key={key}
               type="button"
-              aria-pressed={filter.scope === s.key}
-              onClick={() => set('scope', s.key)}
+              aria-pressed={filter.scope === key}
+              onClick={() => set('scope', key)}
               className={`px-2.5 py-1.5 font-medium whitespace-nowrap ${
-                filter.scope === s.key
+                filter.scope === key
                   ? 'bg-accent-600 text-white'
                   : 'bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
-              {s.label}
+              {scopeLabels[key]}
             </button>
           ))}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Kind" className="flex gap-1.5">
-          {KINDS.map(({ key, label }) => (
+        <div role="group" aria-label={t.kind} className="flex gap-1.5">
+          {KIND_KEYS.map((key) => (
             <button
               key={key}
               type="button"
@@ -170,7 +174,7 @@ export const FilterBar = ({
               onClick={() => set('kinds', toggleIn(filter.kinds, key))}
               className={chipClass(filter.kinds.has(key))}
             >
-              {label}
+              {kindLabels[key]}
             </button>
           ))}
         </div>
@@ -181,7 +185,7 @@ export const FilterBar = ({
           aria-expanded={open}
           className={chipClass(open || activeCount > filter.kinds.size)}
         >
-          Filters
+          {t.filters}
           {activeCount > 0 && (
             <span className="ml-1 rounded-full bg-accent-600 px-1.5 text-[10px] text-white">
               {activeCount}
@@ -194,7 +198,7 @@ export const FilterBar = ({
             htmlFor={sortId}
             className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
           >
-            Sort
+            {t.sort}
           </label>
           <select
             id={sortId}
@@ -213,12 +217,10 @@ export const FilterBar = ({
 
       {open && (
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-          <div role="group" aria-label="Shadow">
+          <div role="group" aria-label={t.shadow}>
             <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
-              Shadow{' '}
-              <span className="font-normal normal-case opacity-70">
-                (fish &amp; sea creatures)
-              </span>
+              {t.shadow}{' '}
+              <span className="font-normal normal-case opacity-70">{t.shadowNote}</span>
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
               {SIZE_SHADOWS.map((s) => (
@@ -229,7 +231,7 @@ export const FilterBar = ({
                   onClick={() => set('shadows', toggleIn(filter.shadows, s))}
                   className={chipClass(filter.shadows.has(s))}
                 >
-                  {s}
+                  {shadowLabel(s, lang)}
                 </button>
               ))}
               {/* Separated because these describe shape, not size — see types.ts. */}
@@ -245,35 +247,44 @@ export const FilterBar = ({
                   onClick={() => set('shadows', toggleIn(filter.shadows, s))}
                   className={chipClass(filter.shadows.has(s))}
                 >
-                  {s}
+                  {shadowLabel(s, lang)}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* `format` translates the chip label while the value stays the English data key. */}
           <ChipGroup
-            label="Where (bugs)"
+            label={t.whereBugs}
             values={WHERE_GROUPS}
             selected={filter.whereGroups}
             onToggle={(v) => set('whereGroups', toggleIn(filter.whereGroups, v))}
+            format={(v) => whereGroupLabel(v, lang)}
           />
 
           <ChipGroup
-            label="Weather (bugs)"
+            label={t.weatherBugs}
             values={WEATHERS}
             selected={filter.weathers}
             onToggle={(v) => set('weathers', toggleIn(filter.weathers, v))}
+            format={(v) => weatherLabel(v, lang)}
           />
         </div>
       )}
 
       <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+        {/*
+          The count is inside the localized string rather than concatenated around it:
+          Spanish needs number agreement ("1 criatura" vs "2 criaturas") that a fixed
+          prefix/suffix split cannot express.
+        */}
         <p>
           <span className="font-semibold text-slate-900 dark:text-slate-100">
-            {resultCount}
+            {resultCount.toLocaleString(localeOf(lang))}
           </span>{' '}
-          {filter.scope === 'now' ? 'catchable right now' : 'critters'}
-          {isFilterActive(filter) && ' (filtered)'}
+          {filter.scope === 'now'
+            ? t.catchableNowSuffix(resultCount, isFilterActive(filter))
+            : t.critterCountSuffix(resultCount, isFilterActive(filter))}
         </p>
         {isFilterActive(filter) && (
           <button
@@ -281,7 +292,7 @@ export const FilterBar = ({
             onClick={onClear}
             className="rounded-lg px-2 py-0.5 text-xs font-medium text-accent-700 hover:bg-accent-50 dark:text-accent-600 dark:hover:bg-slate-800"
           >
-            Clear filters
+            {t.clearFilters}
           </button>
         )}
       </div>

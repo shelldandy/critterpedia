@@ -13,8 +13,10 @@ import type {
   Weather,
   WhereGroup,
 } from '../data/types.ts';
+import { DEFAULT_LANG, localeOf, nameIn, type Lang } from '../i18n/lang.ts';
+import type { Messages } from '../i18n/messages.ts';
 import { isAvailableNow } from './availability.ts';
-import { compareUrgency, urgencyOf, type Urgency } from './urgency.ts';
+import { compareUrgencyIn, urgencyOf, type Urgency } from './urgency.ts';
 
 /**
  * 'now' = catchable this hour (the app's core promise). 'all' = the full 200, for
@@ -79,13 +81,33 @@ export const activeFilterCount = (f: CritterFilter): number =>
 const passesSet = <T>(selected: ReadonlySet<T>, value: T | undefined): boolean =>
   selected.size === 0 || (value !== undefined && selected.has(value));
 
-/** Matches name and the raw location text, so "pier" and "palm" both find their critters. */
+/**
+ * Case- and accent-insensitive search key. NFD splits an accented char into base + combining
+ * mark, and the range strip drops the marks, so "napoleon" matches "pez napoleón" and
+ * "anemona" matches "anémona". Without this, a Spanish-language user typing on a keyboard
+ * without dead keys would silently get zero results for a critter that is right there.
+ */
+export const foldForSearch = (s: string): string =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    // U+0300..U+036F is the combining-diacritics block, written as escapes because
+    // the literal characters are invisible in an editor and a reformat could gut this.
+    .replace(/[\u0300-\u036f]/g, '');
+
+/**
+ * Matches location text plus the name in BOTH languages, regardless of display language.
+ * Deliberately not scoped to the active language: a bilingual player knows some critters
+ * by one name and some by the other, and hiding the English index in Spanish mode would
+ * make the search worse for exactly the audience that switched.
+ */
 const matchesQuery = (c: Critter, query: string): boolean => {
-  const q = query.trim().toLowerCase();
+  const q = foldForSearch(query.trim());
   if (q === '') return true;
   return (
-    c.name.toLowerCase().includes(q) ||
-    (c.whereHow?.toLowerCase().includes(q) ?? false)
+    foldForSearch(c.name).includes(q) ||
+    foldForSearch(c.nameEs).includes(q) ||
+    (c.whereHow ? foldForSearch(c.whereHow).includes(q) : false)
   );
 };
 
@@ -120,31 +142,56 @@ export const shadowRank = (c: Critter): number => {
 /** Narrower window = rarer. Months dominate hours: a June-only fish is rarer than a night-only one. */
 const rarityScore = (u: Urgency): number => u.monthsAvailable * 24 + u.hoursAvailable;
 
-const byName = (a: Urgency, b: Urgency): number =>
-  a.critter.name.localeCompare(b.critter.name);
+/**
+ * Name comparator for the active language, built once per sort rather than per comparison.
+ *
+ * `Intl.Collator` (not bare `localeCompare`) because Spanish ordering is not codepoint
+ * ordering: a collator puts "ñ" after "n" and treats accented vowels as equal to their base
+ * for primary ordering, so "pez ángel" and "pez anguila" sort sensibly against each other.
+ * Reusing one instance also avoids re-parsing locale data on every one of the ~200·log(200)
+ * comparisons.
+ */
+const nameComparator = (lang: Lang): ((a: Urgency, b: Urgency) => number) => {
+  const collator = new Intl.Collator(localeOf(lang), {
+    sensitivity: 'variant',
+    numeric: true,
+  });
+  return (a, b) => collator.compare(nameIn(a.critter, lang), nameIn(b.critter, lang));
+};
 
 /*
   Every comparator falls back to name so the order is total and stable — without it,
-  the 40-odd critters that share a sell price would shuffle between renders.
+  the 40-odd critters that share a sell price would shuffle between renders. The fallback
+  follows the displayed language, so a list sorted by price reads in a consistent order
+  rather than tie-breaking on names the user cannot see.
 */
-const COMPARATORS: Record<SortKey, (a: Urgency, b: Urgency) => number> = {
-  // Handled by rankCatchableNow's own comparator; present so the map is total.
-  urgency: byName,
-  name: byName,
-  'sell-desc': (a, b) => b.critter.sell - a.critter.sell || byName(a, b),
-  'sell-asc': (a, b) => a.critter.sell - b.critter.sell || byName(a, b),
-  shadow: (a, b) => shadowRank(a.critter) - shadowRank(b.critter) || byName(a, b),
-  rarity: (a, b) => rarityScore(a) - rarityScore(b) || byName(a, b),
+const comparatorsFor = (
+  lang: Lang,
+): Record<SortKey, (a: Urgency, b: Urgency) => number> => {
+  const byName = nameComparator(lang);
+  return {
+    // Handled by rankCatchableNow's own comparator; present so the map is total.
+    urgency: byName,
+    name: byName,
+    'sell-desc': (a, b) => b.critter.sell - a.critter.sell || byName(a, b),
+    'sell-asc': (a, b) => a.critter.sell - b.critter.sell || byName(a, b),
+    shadow: (a, b) => shadowRank(a.critter) - shadowRank(b.critter) || byName(a, b),
+    rarity: (a, b) => rarityScore(a) - rarityScore(b) || byName(a, b),
+  };
 };
 
-export const SORT_LABELS: Record<SortKey, string> = {
-  urgency: 'Urgency',
-  name: 'Name (A–Z)',
-  'sell-desc': 'Price (high → low)',
-  'sell-asc': 'Price (low → high)',
-  shadow: 'Shadow size',
-  rarity: 'Rarity',
-};
+/**
+ * Sort labels for a language. The keys stay English identifiers — only the display text is
+ * localized, so persisted filter state and tests are unaffected by the display language.
+ */
+export const sortLabels = (t: Messages): Record<SortKey, string> => ({
+  urgency: t.sortUrgency,
+  name: t.sortName,
+  'sell-desc': t.sortPriceDesc,
+  'sell-asc': t.sortPriceAsc,
+  shadow: t.sortShadow,
+  rarity: t.sortRarity,
+});
 
 export const SORT_ORDER: readonly SortKey[] = [
   'urgency',
@@ -174,6 +221,8 @@ export const selectCritters = (
   f: CritterFilter,
   now: Date,
   hemi: Hemisphere,
+  /** Display language — drives name sorting and every comparator's tiebreak. */
+  lang: Lang = DEFAULT_LANG,
 ): Urgency[] => {
   const pool =
     f.scope === 'now'
@@ -184,5 +233,7 @@ export const selectCritters = (
     .filter((c) => matchesFilter(c, f))
     .map((c) => urgencyOf(c, now, hemi));
 
-  return items.sort(f.sort === 'urgency' ? compareUrgency : COMPARATORS[f.sort]);
+  return items.sort(
+    f.sort === 'urgency' ? compareUrgencyIn(lang) : comparatorsFor(lang)[f.sort],
+  );
 };

@@ -71,12 +71,58 @@ const BUG_LOCATION_GROUPS: Readonly<Record<string, WhereGroup>> = {
     'Special',
 };
 
+/**
+ * Critters whose Spanish name is legitimately identical to the English — loanwords and
+ * cognates (`dorado` is itself Spanish). Enumerated so that the "ES must differ from EN"
+ * check can catch a wrong-key regression without these 6 tripping it.
+ */
+const SHARED_NAMES: ReadonlySet<string> = new Set([
+  'arowana',
+  'betta',
+  'dorado',
+  'koi',
+  'tilapia',
+  'mosquito',
+]);
+
+/**
+ * Mexican-Spanish spot checks. These 4 are exactly where `uSes` and `eUes` disagree, so
+ * they are the canary for the field selection: if a future upstream reshuffle points this
+ * build at peninsular Spanish, `mariquita` lands here and the build stops.
+ */
+const ES_PINS: Readonly<Record<string, string>> = {
+  ladybug: 'catarina',
+  'evening cicada': 'cigarra',
+  'cicada shell': 'carcasa de cigarra',
+  'paper kite butterfly': 'mariposa papel de arroz',
+};
+
 /** Upstream shape — only the fields we consume. */
 interface RawHemisphere {
   time: string[];
   timeArray: number[] | number[][];
   months: string[];
   monthsArray: number[] | number[][];
+}
+
+/**
+ * Upstream ships 14 locales per critter. We keep exactly one: `uSes`, the Americas
+ * Spanish localization, which is the Mexican wording the game itself ships.
+ *
+ * `uSes` and `eUes` are NOT interchangeable. They agree for 196 of 200 critters and
+ * diverge for 4, always in the direction of Mexican vs. peninsular vocabulary:
+ *
+ *   ladybug              catarina             / mariquita
+ *   evening cicada       cigarra              / cigarrilla
+ *   cicada shell         carcasa de cigarra   / muda de cigarra
+ *   paper kite butterfly mariposa papel de arroz / mariposa cometa de papel
+ *
+ * A 98%-correct field is the worst kind of bug here: it looks right in spot checks and
+ * is wrong precisely where a Mexican player would notice. Hence `uSes`, asserted below.
+ */
+interface RawTranslations {
+  uSes?: string | null;
+  eUes?: string | null;
 }
 
 interface RawCritter {
@@ -90,6 +136,7 @@ interface RawCritter {
   catchDifficulty?: string | null;
   vision?: string | null;
   iconFilename: string;
+  translations?: RawTranslations | null;
   hemispheres: { north: RawHemisphere; south: RawHemisphere };
 }
 
@@ -125,10 +172,19 @@ async function fetchJson<T>(file: string): Promise<T> {
 }
 
 function toCritter(raw: RawCritter, kind: Kind): Critter {
+  /*
+    Hard-fail on a missing Spanish name rather than falling back to English. A silent
+    fallback would ship a dataset that is 199/200 Spanish, and the one English straggler
+    would look like a translation gap in the game rather than a broken build.
+  */
+  const nameEs = raw.translations?.uSes;
+  if (!nameEs) return fail(`Missing translations.uSes for "${raw.name}" (${kind}-${raw.num})`);
+
   const c: Critter = {
     id: `${kind}-${raw.num}`,
     kind,
     name: raw.name,
+    nameEs: cleanText(nameEs),
     num: raw.num,
     sell: raw.sell,
     icon: raw.iconFilename,
@@ -174,6 +230,13 @@ function validate(critters: Critter[]): void {
     seen.add(c.id);
 
     if (!c.name) fail(`Missing name on ${c.id}`);
+    if (!c.nameEs) fail(`Missing Spanish name on ${c.id}`);
+    if (c.nameEs === c.name && !SHARED_NAMES.has(c.name.toLowerCase())) {
+      fail(
+        `${c.id}: Spanish name identical to English ("${c.name}") — ` +
+          `wrong translations key, or add it to SHARED_NAMES if genuinely untranslated.`,
+      );
+    }
     if (!c.icon) fail(`Missing icon on ${c.id}`);
     if (!Number.isFinite(c.sell)) fail(`Bad sell price on ${c.id}`);
 
@@ -197,6 +260,14 @@ function validate(critters: Critter[]): void {
       }
       if (new Set(months).size !== months.length) fail(`${c.id} ${hemi}: duplicate months`);
       if (new Set(hours).size !== hours.length) fail(`${c.id} ${hemi}: duplicate hours`);
+    }
+
+    const pin = ES_PINS[c.name.toLowerCase()];
+    if (pin && c.nameEs !== pin) {
+      fail(
+        `${c.id} "${c.name}": expected Mexican Spanish "${pin}", got "${c.nameEs}". ` +
+          `This is the uSes-vs-eUes canary — verify the translations key.`,
+      );
     }
 
     if (c.kind === 'bug' && c.shadow) fail(`${c.id}: bugs must not have a shadow`);

@@ -101,6 +101,80 @@ describe('matchesFilter', () => {
     const f = filter({ query: '   ' });
     expect(CRITTERS.filter((c) => matchesFilter(c, f))).toHaveLength(CRITTERS.length);
   });
+
+  /*
+    Search spans both languages regardless of the display language: a bilingual player knows
+    some critters by one name and some by the other, so scoping the index to the active
+    language would make search worse for the users who switched.
+  */
+  it('finds a critter by its Spanish name', () => {
+    const found = CRITTERS.filter((c) => matchesFilter(c, filter({ query: 'catarina' })));
+    expect(found.map((c) => c.name)).toEqual(['ladybug']);
+  });
+
+  it('still finds a critter by its English name (search is language-independent)', () => {
+    const found = CRITTERS.filter((c) => matchesFilter(c, filter({ query: 'ladybug' })));
+    expect(found.map((c) => c.name)).toEqual(['ladybug']);
+  });
+
+  /*
+    Accent folding matters practically: plenty of players type on layouts without dead keys,
+    and an exact-match-only search would return nothing for a critter plainly on screen.
+  */
+  it('matches Spanish names with or without accents, in either direction', () => {
+    const unaccented = CRITTERS.filter((c) => matchesFilter(c, filter({ query: 'napoleon' })));
+    expect(unaccented.map((c) => c.nameEs)).toContain('pez napoleón');
+
+    const accented = CRITTERS.filter((c) => matchesFilter(c, filter({ query: 'napoleón' })));
+    expect(accented.map((c) => c.nameEs)).toContain('pez napoleón');
+  });
+
+  it('folds case and accents together', () => {
+    const found = CRITTERS.filter((c) => matchesFilter(c, filter({ query: 'PEZ ÁNGEL' })));
+    expect(found.map((c) => c.nameEs)).toContain('pez ángel');
+  });
+});
+
+describe('language-aware sorting', () => {
+  const at2 = (m: number, d: number, h: number) => at(m, d, h);
+
+  it('sorts by the displayed language, not always by English', () => {
+    const f = filter({ scope: 'all', sort: 'name' });
+    const es = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'es');
+    const en = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'en');
+
+    // Same set, different order — otherwise the Spanish list would look unsorted.
+    expect(es).toHaveLength(en.length);
+    expect(es.map((u) => u.critter.id)).not.toEqual(en.map((u) => u.critter.id));
+  });
+
+  it('produces a correctly collated Spanish A–Z order', () => {
+    const es = selectCritters(
+      CRITTERS,
+      filter({ scope: 'all', sort: 'name' }),
+      at2(6, 1, 12),
+      'north',
+      'es',
+    );
+    const shown = es.map((u) => u.critter.nameEs);
+    const collated = [...shown].sort((a, b) => a.localeCompare(b, 'es'));
+    expect(shown).toEqual(collated);
+  });
+
+  it('defaults to English when no language is passed', () => {
+    const f = filter({ scope: 'all', sort: 'name' });
+    expect(selectCritters(CRITTERS, f, at2(6, 1, 12), 'north')).toEqual(
+      selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'en'),
+    );
+  });
+
+  it('keeps a total, stable order in Spanish for a sort with many ties', () => {
+    // Price ties are the case the name tiebreak exists for; it must not reintroduce shuffle.
+    const f = filter({ scope: 'all', sort: 'sell-desc' });
+    const a = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'es');
+    const b = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'es');
+    expect(a.map((u) => u.critter.id)).toEqual(b.map((u) => u.critter.id));
+  });
 });
 
 describe('shadowRank', () => {

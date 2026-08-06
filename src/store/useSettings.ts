@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import type { Hemisphere } from '../data/types.ts';
+import { DEFAULT_LANG, applyLang, isLang, type Lang } from '../i18n/lang.ts';
 import { DEFAULT_SCHEME, applyScheme, isScheme, type Scheme } from '../theme/scheme.ts';
 import { DEFAULT_THEME_ID, applyTheme, isThemeId, type ThemeId } from '../theme/themes.ts';
 
@@ -11,6 +12,8 @@ interface SettingsState {
   theme: ThemeId;
   /** Light/dark preference. 'system' defers to the OS — see `theme/scheme.ts`. */
   scheme: Scheme;
+  /** Critter-name display language. UI chrome stays English — see `i18n/lang.ts`. */
+  lang: Lang;
   /**
    * Manual clock override as an ISO-ish local string, or null to follow the device clock.
    * ACNH runs on the console clock and this audience time-travels, so silently trusting
@@ -21,6 +24,7 @@ interface SettingsState {
   setClockOverride: (iso: string | null) => void;
   setTheme: (t: ThemeId) => void;
   setScheme: (s: Scheme) => void;
+  setLang: (l: Lang) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -29,6 +33,7 @@ export const useSettings = create<SettingsState>()(
       hemisphere: 'north',
       theme: DEFAULT_THEME_ID,
       scheme: DEFAULT_SCHEME,
+      lang: DEFAULT_LANG,
       clockOverride: null,
       setHemisphere: (hemisphere) => set({ hemisphere }),
       setClockOverride: (clockOverride) => set({ clockOverride }),
@@ -40,10 +45,14 @@ export const useSettings = create<SettingsState>()(
         applyScheme(scheme);
         set({ scheme });
       },
+      setLang: (lang) => {
+        applyLang(lang);
+        set({ lang });
+      },
     }),
     {
       name: 'acnh-hunt-settings',
-      version: 3,
+      version: 4,
       /*
         Each bump adds a field; zustand drops the entire persisted object on a version
         mismatch without this, which would silently reset an existing user's hemisphere.
@@ -55,6 +64,7 @@ export const useSettings = create<SettingsState>()(
           ...state,
           ...(from < 2 ? { theme: DEFAULT_THEME_ID } : {}),
           ...(from < 3 ? { scheme: DEFAULT_SCHEME } : {}),
+          ...(from < 4 ? { lang: DEFAULT_LANG } : {}),
         };
       },
       /*
@@ -70,6 +80,7 @@ export const useSettings = create<SettingsState>()(
           ...state,
           theme: isThemeId(state.theme) ? state.theme : DEFAULT_THEME_ID,
           scheme: isScheme(state.scheme) ? state.scheme : DEFAULT_SCHEME,
+          lang: isLang(state.lang) ? state.lang : DEFAULT_LANG,
         };
       },
       /*
@@ -80,6 +91,7 @@ export const useSettings = create<SettingsState>()(
       onRehydrateStorage: () => (state) => {
         applyTheme(isThemeId(state?.theme) ? state.theme : DEFAULT_THEME_ID);
         applyScheme(isScheme(state?.scheme) ? state.scheme : DEFAULT_SCHEME);
+        applyLang(isLang(state?.lang) ? state.lang : DEFAULT_LANG);
       },
     },
   ),

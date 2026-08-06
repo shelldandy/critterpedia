@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
+import { useMessages } from '../i18n/useMessages.ts';
 import { useSettings } from '../store/useSettings.ts';
-import { SCHEMES, watchSystemScheme } from '../theme/scheme.ts';
+import { SCHEMES, watchSystemScheme, type Scheme } from '../theme/scheme.ts';
 
 const ICON: Record<string, string> = {
   light: '☀',
@@ -16,6 +17,13 @@ const ICON: Record<string, string> = {
 export const SchemePicker = () => {
   const scheme = useSettings((s) => s.scheme);
   const setScheme = useSettings((s) => s.setScheme);
+  const { t } = useMessages();
+
+  const names: Record<Scheme, string> = {
+    light: t.schemeLight,
+    dark: t.schemeDark,
+    system: t.schemeSystem,
+  };
 
   /*
     In 'system' mode the OS can flip while the app is open. `applyScheme` mutates the DOM
@@ -27,7 +35,7 @@ export const SchemePicker = () => {
   return (
     <div
       role="group"
-      aria-label="Color scheme"
+      aria-label={t.colorScheme}
       className="flex overflow-hidden rounded-lg border border-slate-300 text-xs dark:border-slate-600"
     >
       {SCHEMES.map((s) => (
@@ -45,7 +53,7 @@ export const SchemePicker = () => {
           <span aria-hidden className="mr-1">
             {ICON[s.id]}
           </span>
-          {s.label}
+          {names[s.id]}
         </button>
       ))}
     </div>
