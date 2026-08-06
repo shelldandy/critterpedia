@@ -15,6 +15,9 @@ import { useSettings } from '../store/useSettings.ts';
 import { CritterCard } from './CritterCard.tsx';
 import { FilterBar } from './FilterBar.tsx';
 
+const GRID =
+  'grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4';
+
 const BAND_ACCENT: Record<string, string> = {
   closing: 'text-rose-700 dark:text-rose-400',
   leaving: 'text-orange-700 dark:text-orange-400',
@@ -60,7 +63,7 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
     setFilter((f) => ({ ...EMPTY_FILTER, scope: f.scope, sort: f.sort }));
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-4">
+    <section className="mx-auto max-w-6xl px-4 py-4">
       <FilterBar
         filter={filter}
         onChange={setFilter}
@@ -86,7 +89,7 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
                   {BAND_LABELS[band]}{' '}
                   <span className="font-normal opacity-70">({items.length})</span>
                 </h2>
-                <ul className="flex flex-col gap-2">
+                <ul className={GRID}>
                   {items.map((u) => (
                     <CritterCard
                       key={u.critter.id}
@@ -100,7 +103,7 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
             );
           })
         : visible.length > 0 && (
-            <ul className="flex flex-col gap-2">
+            <ul className={GRID}>
               {visible.map((u) => (
                 <CritterCard
                   key={u.critter.id}

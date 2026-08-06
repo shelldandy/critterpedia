@@ -15,7 +15,7 @@ export default function App() {
       <main>
         <NowPanel now={now} hemisphere={hemisphere} />
       </main>
-      <footer className="mx-auto max-w-2xl px-4 pt-2 pb-8 text-xs text-slate-500 dark:text-slate-500">
+      <footer className="mx-auto max-w-6xl px-4 pt-2 pb-8 text-xs text-slate-500 dark:text-slate-500">
         {/* Split around the link rather than interpolated into one string, so the sentence
             keeps its anchor without needing a rich-text formatting layer. */}
         {t.dataCredit}{' '}

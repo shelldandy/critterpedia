@@ -61,38 +61,29 @@ export const CritterCard = ({
   const { critter: c, hoursLeft, leavingThisMonth, closingSoon } = urgency;
   const { t, lang } = useMessages();
   const w = windowFor(c, hemisphere);
-  /*
-    In the "now" scope everything listed is catchable, so no badge is needed. In the "all"
-    scope the list is mostly *not* catchable, and a card that looks identical either way
-    would be a confident wrong answer — the one thing the README forbids.
-  */
   const unavailable = now !== undefined && !isAvailableNow(c, now, hemisphere);
 
   return (
     <li
-      className={`flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 ${
+      className={`flex flex-col rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${
         unavailable ? 'opacity-60' : ''
       }`}
     >
-      <IconWithFallback src={iconUrl(c)} alt="" />
+      {/* Header: kind badge + icon */}
+      <div className="flex items-start justify-between p-4 pb-2">
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${KIND_STYLE[c.kind]}`}
+        >
+          {kindLabel(c.kind, t)}
+        </span>
+        <IconWithFallback src={iconUrl(c)} alt="" />
+      </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {/*
-            `first-letter:uppercase`, not `capitalize`: upstream names are lowercased
-            inconsistently, but Title Case is wrong in Spanish, which does not capitalize
-            common nouns ("pez espada", never "Pez Espada"). Sentence case is correct in
-            both languages and still tidies the ragged upstream casing.
-          */}
-          <span className="truncate font-medium text-slate-900 first-letter:uppercase dark:text-slate-100">
-            {nameIn(c, lang)}
-          </span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${KIND_STYLE[c.kind]}`}
-          >
-            {kindLabel(c.kind, t)}
-          </span>
-        </div>
+      {/* Info: name, metadata, availability */}
+      <div className="flex-1 px-4 pb-2">
+        <span className="font-medium text-slate-900 first-letter:uppercase dark:text-slate-100">
+          {nameIn(c, lang)}
+        </span>
 
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 dark:text-slate-400">
           {c.whereHow && <span>{whereHowLabel(c.whereHow, lang)}</span>}
@@ -102,27 +93,18 @@ export const CritterCard = ({
             </span>
           )}
           {c.movementSpeed && <span>· {speedLabel(c.movementSpeed, lang)}</span>}
-          {/*
-            The `!== 'Any weather'` test stays on the raw English data value, NOT on the
-            translated label: comparing display text would silently stop suppressing the
-            default once translated, tagging all 45 fair-weather bugs with a useless chip.
-          */}
           {c.weather && c.weather !== 'Any weather' && (
             <span>· {weatherLabel(c.weather, lang)}</span>
           )}
         </div>
 
-        {/*
-          Never reconstructed naively from the hour array — min/max on a midnight-spanning
-          window would read as "all day". English is the upstream text verbatim; Spanish is
-          rebuilt from the numeric arrays run-by-run. See `i18n/availabilityText.ts`.
-        */}
         <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">
           {hoursTextIn(w, lang).join(', ')} · {monthsTextIn(w, lang).join(', ')}
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1">
+      {/* Footer: price + urgency badge */}
+      <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 dark:border-slate-800">
         <span className="text-sm font-semibold text-slate-700 tabular-nums dark:text-slate-300">
           {c.sell.toLocaleString(localeOf(lang))}
           <span className="ml-0.5 text-xs font-normal text-slate-500">{t.bells}</span>

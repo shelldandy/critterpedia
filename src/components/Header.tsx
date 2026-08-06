@@ -16,7 +16,7 @@ export const Header = ({ now }: { now: Date }) => {
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
-      <div className="mx-auto flex max-w-2xl flex-wrap items-center gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
         <h1 className="mr-auto text-base font-semibold text-slate-900 dark:text-slate-100">
           {t.appName}
         </h1>
