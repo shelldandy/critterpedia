@@ -6,6 +6,7 @@ import {
   availableNow,
   hoursUntilGone,
   isAllDay,
+  isAvailableAt,
   isArrivingNextMonth,
   isAvailableNow,
   isLeavingAfterThisMonth,
@@ -95,6 +96,8 @@ describe('nested-array regression (piranha, evening cicada, walking stick, giant
     expect(isAvailableNow(piranha, at(7, 15, 23), 'north')).toBe(true);
     expect(isAvailableNow(piranha, at(7, 15, 2), 'north')).toBe(true);
     expect(isAvailableNow(piranha, at(7, 15, 18), 'north')).toBe(false);
+    expect(isAvailableAt(piranha, 7, 12, 'north')).toBe(true);
+    expect(isAvailableAt(piranha, 7, 18, 'north')).toBe(false);
   });
 
   it('evening cicada is catchable at 6 PM but not at noon', () => {
@@ -130,6 +133,20 @@ describe('nested-array regression (piranha, evening cicada, walking stick, giant
         expect(w.hours.length).toBeLessThan(24);
       }
     }
+  });
+});
+
+describe('selected month/hour availability', () => {
+  it('allows either dimension to be unconstrained', () => {
+    const angelfish = find('angelfish');
+    expect(isAvailableAt(angelfish, 'any', 2, 'north')).toBe(true);
+    expect(isAvailableAt(angelfish, 7, 'any', 'north')).toBe(true);
+    expect(isAvailableAt(angelfish, 'any', 12, 'north')).toBe(false);
+  });
+
+  it('keeps midnight-spanning critters catchable with any month at hour 2', () => {
+    expect(isAvailableAt(find('angelfish'), 'any', 2, 'north')).toBe(true);
+    expect(isAvailableAt(find('piranha'), 'any', 2, 'north')).toBe(true);
   });
 });
 

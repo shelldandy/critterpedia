@@ -15,17 +15,22 @@ import type {
 } from '../data/types.ts';
 import { DEFAULT_LANG, localeOf, nameIn, type Lang } from '../i18n/lang.ts';
 import type { Messages } from '../i18n/messages.ts';
-import { isAvailableNow } from './availability.ts';
+import {
+  isAvailableAt,
+  isAllDay,
+  isYearRound,
+  monthOf,
+  windowFor,
+} from './availability.ts';
 import { compareUrgencyIn, urgencyOf, type Urgency } from './urgency.ts';
 
-/**
- * 'now' = catchable this hour (the app's core promise). 'all' = the full 200, for
- * reverse-lookup and planning. Scope is deliberately separate from the filters: it
- * changes which question is being asked, not merely how the answer is narrowed.
- */
+/** `'now'` hides unavailable entries; `'all'` preserves the stable full grid. */
 export type Scope = 'now' | 'all';
 
+export type TimeSel = number | 'current' | 'any';
+
 export type SortKey =
+  | 'number'
   | 'urgency'
   | 'name'
   | 'sell-desc'
@@ -42,65 +47,70 @@ export interface CritterFilter {
   shadows: Set<Shadow>;
   whereGroups: Set<WhereGroup>;
   weathers: Set<Weather>;
+  month: TimeSel;
+  hour: TimeSel;
   sort: SortKey;
 }
 
 export const EMPTY_FILTER: CritterFilter = {
-  scope: 'now',
+  scope: 'all',
   query: '',
   kinds: new Set(),
   shadows: new Set(),
   whereGroups: new Set(),
   weathers: new Set(),
-  sort: 'urgency',
+  month: 'current',
+  hour: 'current',
+  sort: 'number',
 };
 
-/**
- * True when the filter would show everything in its scope. Drives the "Clear" affordance —
- * scope is excluded on purpose, since switching to All critters is not a filter to clear.
- */
+/** The month/hour represented by a filter, plus whether urgency is safe to show. */
+export interface ResolvedWhen {
+  month: number | 'any';
+  hour: number | 'any';
+  isLive: boolean;
+}
+
+export const resolveWhen = (f: CritterFilter, now: Date): ResolvedWhen => ({
+  month: f.month === 'current' ? monthOf(now) : f.month,
+  hour: f.hour === 'current' ? now.getHours() : f.hour,
+  isLive: f.month === 'current' && f.hour === 'current',
+});
+
+/** True when the filter would show a subset beyond its scope choice. */
 export const isFilterActive = (f: CritterFilter): boolean =>
   f.query.trim() !== '' ||
   f.kinds.size > 0 ||
   f.shadows.size > 0 ||
   f.whereGroups.size > 0 ||
-  f.weathers.size > 0;
+  f.weathers.size > 0 ||
+  f.month !== 'current' ||
+  f.hour !== 'current';
 
 export const activeFilterCount = (f: CritterFilter): number =>
   (f.query.trim() === '' ? 0 : 1) +
   f.kinds.size +
   f.shadows.size +
   f.whereGroups.size +
-  f.weathers.size;
+  f.weathers.size +
+  (f.month === 'current' ? 0 : 1) +
+  (f.hour === 'current' ? 0 : 1);
 
 /**
- * An empty set is "unconstrained", not "exclude everything" — a user who has ticked no
- * shadow boxes wants all shadows, and a bug (which has no shadow at all) must survive a
- * filter it cannot possibly answer.
+ * An empty set is "unconstrained", not "exclude everything" — a bug (which has no shadow
+ * at all) must survive a filter nobody selected.
  */
 const passesSet = <T>(selected: ReadonlySet<T>, value: T | undefined): boolean =>
   selected.size === 0 || (value !== undefined && selected.has(value));
 
-/**
- * Case- and accent-insensitive search key. NFD splits an accented char into base + combining
- * mark, and the range strip drops the marks, so "napoleon" matches "pez napoleón" and
- * "anemona" matches "anémona". Without this, a Spanish-language user typing on a keyboard
- * without dead keys would silently get zero results for a critter that is right there.
- */
+/** Accent-insensitive search key shared by both localized names and locations. */
 export const foldForSearch = (s: string): string =>
   s
     .toLowerCase()
     .normalize('NFD')
-    // U+0300..U+036F is the combining-diacritics block, written as escapes because
-    // the literal characters are invisible in an editor and a reformat could gut this.
     .replace(/[\u0300-\u036f]/g, '');
 
-/**
- * Matches location text plus the name in BOTH languages, regardless of display language.
- * Deliberately not scoped to the active language: a bilingual player knows some critters
- * by one name and some by the other, and hiding the English index in Spanish mode would
- * make the search worse for exactly the audience that switched.
- */
+/** Search both names regardless of the active display language. */
 const matchesQuery = (c: Critter, query: string): boolean => {
   const q = foldForSearch(query.trim());
   if (q === '') return true;
@@ -118,11 +128,6 @@ export const matchesFilter = (c: Critter, f: CritterFilter): boolean =>
   passesSet(f.weathers, c.weather) &&
   matchesQuery(c, f.query);
 
-/**
- * Size ramp for shadow sorting. `Long` and `X-Large w/Fin` describe *shape*, not size, so
- * they are deliberately absent — `shadowRank` sorts them to the end as a labelled group
- * rather than lying about where an eel sits between a Large and an X-Large.
- */
 const SHADOW_RAMP: readonly Shadow[] = [
   'X-Small',
   'Small',
@@ -132,25 +137,15 @@ const SHADOW_RAMP: readonly Shadow[] = [
   'XX-Large',
 ];
 
-/** Sorts unranked shapes and shadowless bugs after the ramp instead of interleaving them. */
 export const shadowRank = (c: Critter): number => {
   if (!c.shadow) return SHADOW_RAMP.length + 2;
   const i = SHADOW_RAMP.indexOf(c.shadow);
   return i === -1 ? SHADOW_RAMP.length + 1 : i;
 };
 
-/** Narrower window = rarer. Months dominate hours: a June-only fish is rarer than a night-only one. */
+/** Narrower window = rarer. Months dominate hours. */
 const rarityScore = (u: Urgency): number => u.monthsAvailable * 24 + u.hoursAvailable;
 
-/**
- * Name comparator for the active language, built once per sort rather than per comparison.
- *
- * `Intl.Collator` (not bare `localeCompare`) because Spanish ordering is not codepoint
- * ordering: a collator puts "ñ" after "n" and treats accented vowels as equal to their base
- * for primary ordering, so "pez ángel" and "pez anguila" sort sensibly against each other.
- * Reusing one instance also avoids re-parsing locale data on every one of the ~200·log(200)
- * comparisons.
- */
 const nameComparator = (lang: Lang): ((a: Urgency, b: Urgency) => number) => {
   const collator = new Intl.Collator(localeOf(lang), {
     sensitivity: 'variant',
@@ -159,19 +154,20 @@ const nameComparator = (lang: Lang): ((a: Urgency, b: Urgency) => number) => {
   return (a, b) => collator.compare(nameIn(a.critter, lang), nameIn(b.critter, lang));
 };
 
-/*
-  Every comparator falls back to name so the order is total and stable — without it,
-  the 40-odd critters that share a sell price would shuffle between renders. The fallback
-  follows the displayed language, so a list sorted by price reads in a consistent order
-  rather than tie-breaking on names the user cannot see.
-*/
+const KIND_ORDER: readonly Kind[] = ['fish', 'bug', 'sea'];
+const kindRank = (kind: Kind): number => KIND_ORDER.indexOf(kind);
+
 const comparatorsFor = (
   lang: Lang,
 ): Record<SortKey, (a: Urgency, b: Urgency) => number> => {
   const byName = nameComparator(lang);
   return {
-    // Handled by rankCatchableNow's own comparator; present so the map is total.
-    urgency: byName,
+    number: (a, b) =>
+      kindRank(a.critter.kind) - kindRank(b.critter.kind) ||
+      a.critter.num - b.critter.num ||
+      byName(a, b),
+    // The flat grid keeps urgency ordering without rendering urgency bands.
+    urgency: compareUrgencyIn(lang),
     name: byName,
     'sell-desc': (a, b) => b.critter.sell - a.critter.sell || byName(a, b),
     'sell-asc': (a, b) => a.critter.sell - b.critter.sell || byName(a, b),
@@ -180,11 +176,8 @@ const comparatorsFor = (
   };
 };
 
-/**
- * Sort labels for a language. The keys stay English identifiers — only the display text is
- * localized, so persisted filter state and tests are unaffected by the display language.
- */
 export const sortLabels = (t: Messages): Record<SortKey, string> => ({
+  number: t.sortNumber,
   urgency: t.sortUrgency,
   name: t.sortName,
   'sell-desc': t.sortPriceDesc,
@@ -194,6 +187,7 @@ export const sortLabels = (t: Messages): Record<SortKey, string> => ({
 });
 
 export const SORT_ORDER: readonly SortKey[] = [
+  'number',
   'urgency',
   'rarity',
   'sell-desc',
@@ -202,38 +196,49 @@ export const SORT_ORDER: readonly SortKey[] = [
   'name',
 ];
 
-/**
- * Urgency is the only sort whose meaning depends on the band grouping, so it is also the
- * only one the UI keeps bands for. Any explicit sort flattens to a single list — a list
- * claiming to be sorted by price must actually be in price order end to end.
- */
-export const keepsBands = (sort: SortKey): boolean => sort === 'urgency';
+/** Availability statistics used by non-live sorts without making hypothetical urgency claims. */
+const staticUrgency = (c: Critter, hemi: Hemisphere): Urgency => {
+  const w = windowFor(c, hemi);
+  return {
+    critter: c,
+    leavingThisMonth: false,
+    newThisMonth: false,
+    hoursLeft: null,
+    closingSoon: false,
+    monthsAvailable: isYearRound(c, hemi) ? 12 : w.months.length,
+    hoursAvailable: isAllDay(c, hemi) ? 24 : w.hours.length,
+  };
+};
+
+export interface SelectedCritter extends Urgency {
+  /** Whether this entry is catchable at the filter's resolved month/hour. */
+  available: boolean;
+}
 
 /**
- * The one entry point the UI calls: scope → filter → rank.
+ * The one entry point the UI calls: resolve time → scope → filter → rank.
  *
- * Urgency data is computed for every result regardless of scope, so a card in the All
- * view can still show "last month to catch". For a critter that is out of season entirely,
- * `hoursLeft` is 0 and the urgency flags are false — accurate, and the card renders no badge.
+ * The default is a full, stable grid with `available` flags. A custom month/hour is never
+ * allowed to produce a misleading "leaving soon" urgency signal.
  */
 export const selectCritters = (
   critters: readonly Critter[],
   f: CritterFilter,
   now: Date,
   hemi: Hemisphere,
-  /** Display language — drives name sorting and every comparator's tiebreak. */
   lang: Lang = DEFAULT_LANG,
-): Urgency[] => {
-  const pool =
-    f.scope === 'now'
-      ? critters.filter((c) => isAvailableNow(c, now, hemi))
-      : critters;
+): SelectedCritter[] => {
+  const when = resolveWhen(f, now);
+  const availableAt = (c: Critter): boolean =>
+    isAvailableAt(c, when.month, when.hour, hemi);
 
+  const pool = f.scope === 'now' ? critters.filter(availableAt) : critters;
   const items = pool
     .filter((c) => matchesFilter(c, f))
-    .map((c) => urgencyOf(c, now, hemi));
+    .map((c): SelectedCritter => ({
+      ...(when.isLive ? urgencyOf(c, now, hemi) : staticUrgency(c, hemi)),
+      available: availableAt(c),
+    }));
 
-  return items.sort(
-    f.sort === 'urgency' ? compareUrgencyIn(lang) : comparatorsFor(lang)[f.sort],
-  );
+  return items.sort(comparatorsFor(lang)[f.sort]);
 };

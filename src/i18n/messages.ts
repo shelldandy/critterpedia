@@ -28,9 +28,18 @@ export interface Messages {
   scopeNow: string;
   scopeAll: string;
   kind: string;
+  kindAll: string;
   kindFish: string;
   kindBugs: string;
   kindSea: string;
+  when: string;
+  month: string;
+  hour: string;
+  current: string;
+  any: string;
+  close: string;
+  hideUnavailable: string;
+  customWhenNotice: string;
   filters: string;
   clearFilters: string;
   sort: string;
@@ -51,18 +60,13 @@ export interface Messages {
   lastMonth: string;
 
   // Sort options
+  sortNumber: string;
   sortUrgency: string;
   sortName: string;
   sortPriceDesc: string;
   sortPriceAsc: string;
   sortShadow: string;
   sortRarity: string;
-
-  // Urgency bands
-  bandClosing: string;
-  bandLeaving: string;
-  bandNew: string;
-  bandRest: string;
 
   // Light/dark
   schemeLight: string;
@@ -112,9 +116,18 @@ const en: Messages = {
   scopeNow: 'Now',
   scopeAll: 'All critters',
   kind: 'Kind',
+  kindAll: 'All',
   kindFish: 'Fish',
   kindBugs: 'Bugs',
   kindSea: 'Sea',
+  when: 'When',
+  month: 'Month',
+  hour: 'Hour',
+  current: 'Current',
+  any: 'Any',
+  close: 'Close',
+  hideUnavailable: 'Hide unavailable',
+  customWhenNotice: 'Showing a custom month and hour, not the current ones.',
   filters: 'Filters',
   clearFilters: 'Clear filters',
   sort: 'Sort',
@@ -133,17 +146,13 @@ const en: Messages = {
   notNow: 'Not now',
   lastMonth: 'Last month',
 
+  sortNumber: 'Critterpedia order',
   sortUrgency: 'Urgency',
   sortName: 'Name (A–Z)',
   sortPriceDesc: 'Price (high → low)',
   sortPriceAsc: 'Price (low → high)',
   sortShadow: 'Shadow size',
   sortRarity: 'Rarity',
-
-  bandClosing: 'Leaving within hours',
-  bandLeaving: 'Last month to catch',
-  bandNew: 'New this month',
-  bandRest: 'Also available now',
 
   schemeLight: 'Light',
   schemeDark: 'Dark',
@@ -185,9 +194,18 @@ const es: Messages = {
   scopeNow: 'Ahora',
   scopeAll: 'Todas',
   kind: 'Tipo',
+  kindAll: 'Todos',
   kindFish: 'Peces',
   kindBugs: 'Bichos',
   kindSea: 'Marinos',
+  when: 'Cuándo',
+  month: 'Mes',
+  hour: 'Hora',
+  current: 'Actual',
+  any: 'Cualquiera',
+  close: 'Cerrar',
+  hideUnavailable: 'Ocultar no disponibles',
+  customWhenNotice: 'Se muestra un mes y una hora personalizados, no los actuales.',
   filters: 'Filtros',
   clearFilters: 'Quitar filtros',
   sort: 'Ordenar',
@@ -206,17 +224,13 @@ const es: Messages = {
   notNow: 'No ahora',
   lastMonth: 'Último mes',
 
+  sortNumber: 'Orden de Critterpedia',
   sortUrgency: 'Urgencia',
   sortName: 'Nombre (A–Z)',
   sortPriceDesc: 'Precio (mayor → menor)',
   sortPriceAsc: 'Precio (menor → mayor)',
   sortShadow: 'Tamaño de sombra',
   sortRarity: 'Rareza',
-
-  bandClosing: 'Se va en unas horas',
-  bandLeaving: 'Último mes para atrapar',
-  bandNew: 'Nuevo este mes',
-  bandRest: 'También disponible ahora',
 
   schemeLight: 'Claro',
   schemeDark: 'Oscuro',

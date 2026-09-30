@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { CRITTERS } from '../data/critters.ts';
 import type { Kind, Shadow, Weather, WhereGroup } from '../data/types.ts';
-import { isAvailableNow } from './availability.ts';
+import { isAvailableAt, isAvailableNow } from './availability.ts';
 import {
   EMPTY_FILTER,
   activeFilterCount,
   isFilterActive,
-  keepsBands,
   matchesFilter,
   selectCritters,
   shadowRank,
@@ -221,9 +220,30 @@ describe('selectCritters — scope', () => {
   });
 
   it('respects hemisphere when scoping to now', () => {
-    const north = selectCritters(CRITTERS, filter(), now, 'north');
-    const south = selectCritters(CRITTERS, filter(), now, 'south');
+    const north = selectCritters(CRITTERS, filter({ scope: 'now' }), now, 'north');
+    const south = selectCritters(CRITTERS, filter({ scope: 'now' }), now, 'south');
     expect(names(north)).not.toEqual(names(south));
+  });
+
+  it('defaults to the full stable grid with live availability flags', () => {
+    const got = selectCritters(CRITTERS, EMPTY_FILTER, now, 'north');
+    expect(got).toHaveLength(200);
+    expect(got.every((u) => u.available === isAvailableNow(u.critter, now, 'north'))).toBe(
+      true,
+    );
+  });
+
+  it('supports a custom month/hour and marks unavailable entries instead of removing them', () => {
+    const got = selectCritters(
+      CRITTERS,
+      filter({ month: 7, hour: 18 }),
+      now,
+      'north',
+    );
+    expect(got).toHaveLength(200);
+    expect(got.every((u) => u.available === isAvailableAt(u.critter, 7, 18, 'north'))).toBe(
+      true,
+    );
   });
 });
 
@@ -269,15 +289,20 @@ describe('selectCritters — sorting', () => {
     expect(new Set(a).size).toBe(a.length);
   });
 
-  it('urgency sort matches the default ranking, unchanged', () => {
-    const viaFilter = names(selectCritters(CRITTERS, filter({ sort: 'urgency' }), now, 'north'));
-    // Mirrors rankCatchableNow: same pool, same comparator.
-    expect(viaFilter.length).toBeGreaterThan(0);
-    const closingFirst = selectCritters(CRITTERS, filter(), now, 'north');
-    const firstNonClosing = closingFirst.findIndex((u) => !u.closingSoon);
-    if (firstNonClosing > 0) {
-      expect(closingFirst.slice(0, firstNonClosing).every((u) => u.closingSoon)).toBe(true);
-    }
+  it('sorts in Critterpedia number order by default', () => {
+    const got = selectCritters(CRITTERS, EMPTY_FILTER, now, 'north');
+    const rank = (kind: string) => (kind === 'fish' ? 0 : kind === 'bug' ? 1 : 2);
+    const keys: Array<[number, number]> = got.map((u) => [
+      rank(u.critter.kind),
+      u.critter.num,
+    ]);
+    expect(keys).toEqual([...keys].sort((a, b) => a[0] - b[0] || a[1] - b[1]));
+  });
+
+  it('keeps urgency as a flat sort without urgency bands', () => {
+    const got = selectCritters(CRITTERS, filter({ scope: 'now', sort: 'urgency' }), now, 'north');
+    expect(got.length).toBeGreaterThan(0);
+    expect(got.every((u) => u.available)).toBe(true);
   });
 });
 
@@ -299,10 +324,10 @@ describe('filter bookkeeping', () => {
     expect(activeFilterCount(filter({ query: '  ' }))).toBe(0);
   });
 
-  it('keeps bands only for the urgency sort', () => {
-    expect(keepsBands('urgency')).toBe(true);
-    for (const s of ['name', 'sell-asc', 'sell-desc', 'shadow', 'rarity'] as const) {
-      expect(keepsBands(s)).toBe(false);
-    }
+  it('counts custom month and hour selections as active filters', () => {
+    expect(isFilterActive(filter({ month: 7 }))).toBe(true);
+    expect(activeFilterCount(filter({ month: 7, hour: 21 }))).toBe(2);
+    expect(isFilterActive(filter({ month: 'any', hour: 'any' }))).toBe(true);
+    expect(isFilterActive(EMPTY_FILTER)).toBe(false);
   });
 });

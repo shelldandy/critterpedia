@@ -35,17 +35,25 @@ export const isAvailableAtHour = (
 ): boolean => inSet(windowFor(c, hemi).hours, hour);
 
 /**
- * Catchable at this exact moment. Midnight-spanning windows arrive pre-expanded
- * (e.g. [21,22,23,0,1,2,3]), so plain membership is correct and no wraparound
- * arithmetic is needed.
+ * Catchable at a selected month and hour. `'any'` deliberately skips that dimension;
+ * midnight-spanning windows arrive pre-expanded (e.g. [21,22,23,0,1,2,3]), so plain
+ * membership is correct and no wraparound arithmetic is needed.
  */
+export const isAvailableAt = (
+  c: Critter,
+  month: number | 'any',
+  hour: number | 'any',
+  hemi: Hemisphere,
+): boolean =>
+  (month === 'any' || isAvailableInMonth(c, month, hemi)) &&
+  (hour === 'any' || isAvailableAtHour(c, hour, hemi));
+
+/** Catchable at this exact moment, kept on the same path as custom month/hour queries. */
 export const isAvailableNow = (
   c: Critter,
   now: Date,
   hemi: Hemisphere,
-): boolean =>
-  isAvailableInMonth(c, monthOf(now), hemi) &&
-  isAvailableAtHour(c, now.getHours(), hemi);
+): boolean => isAvailableAt(c, monthOf(now), now.getHours(), hemi);
 
 export const isYearRound = (c: Critter, hemi: Hemisphere): boolean =>
   windowFor(c, hemi).months.length >= 12;
