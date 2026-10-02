@@ -5,62 +5,61 @@ import type { Hemisphere } from '../data/types.ts';
 import {
   EMPTY_FILTER,
   isFilterActive,
-  keepsBands,
+  resolveWhen,
   selectCritters,
   type CritterFilter,
+  type SelectedCritter,
 } from '../domain/filters.ts';
-import { BAND_ORDER, bandLabels, groupByBand } from '../domain/urgency.ts';
 import { useMessages } from '../i18n/useMessages.ts';
 import { useSettings } from '../store/useSettings.ts';
-import { CritterCard } from './CritterCard.tsx';
+import { CritterDetail } from './CritterDetail.tsx';
+import { CritterTile } from './CritterTile.tsx';
 import { FilterBar } from './FilterBar.tsx';
 
-const GRID =
-  'grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4';
+const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1.5';
 
-const BAND_ACCENT: Record<string, string> = {
-  closing: 'text-rose-700 dark:text-rose-400',
-  leaving: 'text-orange-700 dark:text-orange-400',
-  new: 'text-accent-700 dark:text-accent-600',
-  rest: 'text-slate-500 dark:text-slate-400',
-};
-
-/** Distinguishes "nothing is out at this hour" from "your filters excluded everything". */
+/** Distinguishes "nothing is out" from "your filters excluded everything". */
 const EmptyState = ({ filter }: { filter: CritterFilter }) => {
   const { t } = useMessages();
-  const filtered = isFilterActive(filter);
   return (
     <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-      {filtered ? t.emptyFiltered : t.emptyNothingNow}
+      {isFilterActive(filter) ? t.emptyFiltered : t.emptyNothingNow}
     </p>
+  );
+};
+
+const UrgencyLegend = () => {
+  const { t } = useMessages();
+  return (
+    <div
+      role="note"
+      className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400"
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden className="size-2 rounded-full bg-rose-500" />
+        {t.closingSoonNote}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden className="size-2 rounded-full bg-orange-500" />
+        {t.leavingThisMonthNote}
+      </span>
+    </div>
   );
 };
 
 export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemisphere }) => {
   const [filter, setFilter] = useState<CritterFilter>(EMPTY_FILTER);
-
-  /*
-    `lang` is a real sort input, not just a display concern: it drives the name comparator
-    and every comparator's tiebreak, so it must be in the dependency list or switching
-    language would leave the list in the previous language's order.
-  */
-  const lang = useSettings((s) => s.lang);
-  const { t } = useMessages();
-  const BAND_LABELS = bandLabels(t);
+  const [selected, setSelected] = useState<SelectedCritter | null>(null);
+  const lang = useSettings((state) => state.lang);
 
   const visible = useMemo(
     () => selectCritters(CRITTERS, filter, now, hemisphere, lang),
     [filter, now, hemisphere, lang],
   );
-  const grouped = useMemo(() => groupByBand(visible), [visible]);
+  const when = useMemo(() => resolveWhen(filter, now), [filter, now]);
 
-  /*
-    Clearing keeps `scope` and `sort`: those answer "which question am I asking" and "in
-    what order", not "which subset". Resetting them would yank the view out from under a
-    user who only wanted to drop a shadow chip.
-  */
   const clear = () =>
-    setFilter((f) => ({ ...EMPTY_FILTER, scope: f.scope, sort: f.sort }));
+    setFilter((current) => ({ ...EMPTY_FILTER, scope: current.scope, sort: current.sort }));
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-4">
@@ -69,51 +68,33 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
         onChange={setFilter}
         onClear={clear}
         resultCount={visible.length}
+        now={now}
       />
 
       {visible.length === 0 && <EmptyState filter={filter} />}
 
-      {/*
-        Bands only survive the urgency sort. Under any explicit sort the list flattens, so
-        "sorted by price" means price order end to end rather than price-within-band.
-      */}
-      {keepsBands(filter.sort)
-        ? BAND_ORDER.map((band) => {
-            const items = grouped.get(band) ?? [];
-            if (items.length === 0) return null;
-            return (
-              <div key={band} className="mb-5">
-                <h2
-                  className={`mb-2 text-xs font-semibold tracking-wide uppercase ${BAND_ACCENT[band]}`}
-                >
-                  {BAND_LABELS[band]}{' '}
-                  <span className="font-normal opacity-70">({items.length})</span>
-                </h2>
-                <ul className={GRID}>
-                  {items.map((u) => (
-                    <CritterCard
-                      key={u.critter.id}
-                      urgency={u}
-                      hemisphere={hemisphere}
-                      now={filter.scope === 'all' ? now : undefined}
-                    />
-                  ))}
-                </ul>
-              </div>
-            );
-          })
-        : visible.length > 0 && (
-            <ul className={GRID}>
-              {visible.map((u) => (
-                <CritterCard
-                  key={u.critter.id}
-                  urgency={u}
-                  hemisphere={hemisphere}
-                  now={filter.scope === 'all' ? now : undefined}
-                />
-              ))}
-            </ul>
-          )}
+      {visible.length > 0 && (
+        <ul className={GRID}>
+          {visible.map((item) => (
+            <li key={item.critter.id}>
+              <CritterTile
+                item={item}
+                isLive={when.isLive}
+                onSelect={() => setSelected(item)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <UrgencyLegend />
+
+      <CritterDetail
+        item={selected}
+        hemisphere={hemisphere}
+        when={when}
+        onClose={() => setSelected(null)}
+      />
     </section>
   );
 };

@@ -7,7 +7,6 @@
 
 import type { Critter, Hemisphere } from '../data/types.ts';
 import { localeOf, nameIn, type Lang } from '../i18n/lang.ts';
-import type { Messages } from '../i18n/messages.ts';
 import {
   hoursUntilGone,
   isAllDay,
@@ -92,29 +91,3 @@ export const rankCatchableNow = (
     .filter((c) => isAvailableNow(c, now, hemi))
     .map((c) => urgencyOf(c, now, hemi))
     .sort(compareUrgency);
-
-export type UrgencyBand = 'closing' | 'leaving' | 'new' | 'rest';
-
-export const bandOf = (u: Urgency): UrgencyBand => {
-  if (u.closingSoon) return 'closing';
-  if (u.leavingThisMonth) return 'leaving';
-  if (u.newThisMonth) return 'new';
-  return 'rest';
-};
-
-/** Band headings for a language; the band keys themselves stay language-independent. */
-export const bandLabels = (t: Messages): Record<UrgencyBand, string> => ({
-  closing: t.bandClosing,
-  leaving: t.bandLeaving,
-  new: t.bandNew,
-  rest: t.bandRest,
-});
-
-export const BAND_ORDER: readonly UrgencyBand[] = ['closing', 'leaving', 'new', 'rest'];
-
-export const groupByBand = (items: readonly Urgency[]): Map<UrgencyBand, Urgency[]> => {
-  const out = new Map<UrgencyBand, Urgency[]>();
-  for (const band of BAND_ORDER) out.set(band, []);
-  for (const u of items) out.get(bandOf(u))?.push(u);
-  return out;
-};
