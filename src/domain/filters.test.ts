@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { CRITTERS } from '../data/critters.ts';
 import type { Kind, Shadow, Weather, WhereGroup } from '../data/types.ts';
-import { isAvailableAt, isAvailableNow } from './availability.ts';
+import {
+  isAvailableAt,
+  isAvailableNow,
+  isLeavingAfterThisMonth,
+  isNewThisMonth,
+} from './availability.ts';
 import {
   EMPTY_FILTER,
   activeFilterCount,
@@ -245,6 +250,32 @@ describe('selectCritters — scope', () => {
       true,
     );
   });
+
+  it('filters to critters new or leaving in the current month', () => {
+    const newly = selectCritters(
+      CRITTERS,
+      filter({ monthStatus: 'new' }),
+      now,
+      'north',
+    );
+    const leaving = selectCritters(
+      CRITTERS,
+      filter({ monthStatus: 'leaving' }),
+      now,
+      'north',
+    );
+
+    expect(new Set(newly.map((u) => u.critter.id))).toEqual(
+      new Set(
+        CRITTERS.filter((c) => isNewThisMonth(c, now, 'north')).map((c) => c.id),
+      ),
+    );
+    expect(new Set(leaving.map((u) => u.critter.id))).toEqual(
+      new Set(
+        CRITTERS.filter((c) => isLeavingAfterThisMonth(c, now, 'north')).map((c) => c.id),
+      ),
+    );
+  });
 });
 
 describe('selectCritters — sorting', () => {
@@ -328,6 +359,8 @@ describe('filter bookkeeping', () => {
     expect(isFilterActive(filter({ month: 7 }))).toBe(true);
     expect(activeFilterCount(filter({ month: 7, hour: 21 }))).toBe(2);
     expect(isFilterActive(filter({ month: 'any', hour: 'any' }))).toBe(true);
+    expect(isFilterActive(filter({ monthStatus: 'new' }))).toBe(true);
+    expect(activeFilterCount(filter({ monthStatus: 'leaving' }))).toBe(1);
     expect(isFilterActive(EMPTY_FILTER)).toBe(false);
   });
 });

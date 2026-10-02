@@ -39,6 +39,9 @@ export interface Messages {
   any: string;
   close: string;
   hideUnavailable: string;
+  seasonal: string;
+  newThisMonth: string;
+  leavingThisMonth: string;
   customWhenNotice: string;
   filters: string;
   clearFilters: string;
@@ -58,6 +61,8 @@ export interface Messages {
   bells: string;
   notNow: string;
   lastMonth: string;
+  closingSoonNote: string;
+  leavingThisMonthNote: string;
 
   // Sort options
   sortNumber: string;
@@ -127,6 +132,9 @@ const en: Messages = {
   any: 'Any',
   close: 'Close',
   hideUnavailable: 'Hide unavailable',
+  seasonal: 'Seasonal',
+  newThisMonth: 'New this month',
+  leavingThisMonth: 'Leaving this month',
   customWhenNotice: 'Showing a custom month and hour, not the current ones.',
   filters: 'Filters',
   clearFilters: 'Clear filters',
@@ -145,6 +153,8 @@ const en: Messages = {
   bells: 'bells',
   notNow: 'Not now',
   lastMonth: 'Last month',
+  closingSoonNote: 'Closes within 3 hours today',
+  leavingThisMonthNote: 'Leaves at the end of this month',
 
   sortNumber: 'Critterpedia order',
   sortUrgency: 'Urgency',
@@ -205,6 +215,9 @@ const es: Messages = {
   any: 'Cualquiera',
   close: 'Cerrar',
   hideUnavailable: 'Ocultar no disponibles',
+  seasonal: 'Temporada',
+  newThisMonth: 'Nuevas este mes',
+  leavingThisMonth: 'Se van este mes',
   customWhenNotice: 'Se muestra un mes y una hora personalizados, no los actuales.',
   filters: 'Filtros',
   clearFilters: 'Quitar filtros',
@@ -223,6 +236,8 @@ const es: Messages = {
   bells: 'bayas',
   notNow: 'No ahora',
   lastMonth: 'Último mes',
+  closingSoonNote: 'Cierra en menos de 3 horas hoy',
+  leavingThisMonthNote: 'Se va al final de este mes',
 
   sortNumber: 'Orden de Critterpedia',
   sortUrgency: 'Urgencia',

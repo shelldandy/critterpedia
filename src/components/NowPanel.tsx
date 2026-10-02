@@ -28,6 +28,25 @@ const EmptyState = ({ filter }: { filter: CritterFilter }) => {
   );
 };
 
+const UrgencyLegend = () => {
+  const { t } = useMessages();
+  return (
+    <div
+      role="note"
+      className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400"
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden className="size-2 rounded-full bg-rose-500" />
+        {t.closingSoonNote}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden className="size-2 rounded-full bg-orange-500" />
+        {t.leavingThisMonthNote}
+      </span>
+    </div>
+  );
+};
+
 export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemisphere }) => {
   const [filter, setFilter] = useState<CritterFilter>(EMPTY_FILTER);
   const [selected, setSelected] = useState<SelectedCritter | null>(null);
@@ -67,6 +86,8 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
           ))}
         </ul>
       )}
+
+      <UrgencyLegend />
 
       <CritterDetail
         item={selected}

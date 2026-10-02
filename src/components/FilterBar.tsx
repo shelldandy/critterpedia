@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import type { Kind, Shadow, Weather, WhereGroup } from '../data/types.ts';
 import {
@@ -14,6 +14,7 @@ import { shadowLabel, weatherLabel, whereGroupLabel } from '../i18n/critterTerms
 import { localeOf } from '../i18n/lang.ts';
 import { useMessages } from '../i18n/useMessages.ts';
 import { WhenPicker } from './WhenPicker.tsx';
+import { KIND_BACKGROUND } from './kindStyles.ts';
 
 const KIND_KEYS: readonly Kind[] = ['fish', 'bug', 'sea'];
 
@@ -36,11 +37,18 @@ const WHERE_GROUPS: readonly WhereGroup[] = [
 ];
 const WEATHERS: readonly Weather[] = ['Any weather', 'Any except rain', 'Rain only'];
 
-const chipClass = (on: boolean): string =>
-  `rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+const chipClass = (on: boolean, verticalPadding = 'py-1'): string =>
+  `rounded-lg border px-2.5 ${verticalPadding} text-xs font-medium transition-colors ${
     on
       ? 'border-accent-600 bg-accent-50 text-accent-700 dark:bg-slate-800 dark:text-accent-600'
       : 'border-slate-300 bg-white text-slate-500 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500 dark:hover:border-slate-500'
+  }`;
+
+const kindChipClass = (kind: Kind, on: boolean): string =>
+  `flex min-w-14 flex-col items-center justify-center rounded-xl border px-2 py-1.5 text-xs font-medium transition-colors ${KIND_BACKGROUND[kind]} ${
+    on
+      ? 'border-accent-600 text-accent-700 dark:text-accent-500'
+      : 'border-slate-300 text-slate-600 hover:border-slate-400 dark:border-slate-600 dark:text-slate-400 dark:hover:border-slate-500'
   }`;
 
 const toggleIn = <T,>(set: ReadonlySet<T>, value: T): Set<T> => {
@@ -136,6 +144,7 @@ export const FilterBar = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [whenOpen, setWhenOpen] = useState(false);
+  const whenPickerRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
   const sortId = useId();
   const { t, lang } = useMessages();
@@ -151,8 +160,27 @@ export const FilterBar = ({
     filter.whereGroups.size +
     filter.weathers.size +
     (filter.month === 'current' ? 0 : 1) +
-    (filter.hour === 'current' ? 0 : 1);
+    (filter.hour === 'current' ? 0 : 1) +
+    (filter.monthStatus === 'all' ? 0 : 1);
   const live = filter.month === 'current' && filter.hour === 'current';
+
+  useEffect(() => {
+    if (!whenOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!whenPickerRef.current?.contains(event.target as Node)) setWhenOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setWhenOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [whenOpen]);
 
   const set = <K extends keyof CritterFilter>(key: K, value: CritterFilter[K]) =>
     onChange({ ...filter, [key]: value });
@@ -181,7 +209,7 @@ export const FilterBar = ({
               role="tab"
               aria-selected={filter.kinds.size === 1 && filter.kinds.has(key)}
               onClick={() => selectKind(key)}
-              className={`flex min-w-14 flex-col items-center justify-center rounded-xl border px-2 py-1.5 text-xs font-medium transition-colors ${chipClass(filter.kinds.size === 1 && filter.kinds.has(key))}`}
+              className={kindChipClass(key, filter.kinds.size === 1 && filter.kinds.has(key))}
             >
               <Icon type={key} />
               <span>{kindLabels[key]}</span>
@@ -189,7 +217,7 @@ export const FilterBar = ({
           ))}
         </div>
 
-        <div className="relative ml-auto flex items-center gap-1.5">
+        <div ref={whenPickerRef} className="relative ml-auto flex items-center gap-1.5">
           <button
             type="button"
             aria-label={t.when}
@@ -208,7 +236,7 @@ export const FilterBar = ({
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((value) => !value)}
-            className={chipClass(open || secondaryActive > 0)}
+            className={`inline-flex items-center ${chipClass(open || secondaryActive > 0, 'py-2')}`}
           >
             <span className="inline-flex items-center gap-1.5">
               <Icon type="filter" />
@@ -224,8 +252,14 @@ export const FilterBar = ({
             <WhenPicker
               month={filter.month}
               hour={filter.hour}
-              onMonthChange={(value: TimeSel) => set('month', value)}
-              onHourChange={(value: TimeSel) => set('hour', value)}
+              onMonthChange={(value: TimeSel) => {
+                set('month', value);
+                setWhenOpen(false);
+              }}
+              onHourChange={(value: TimeSel) => {
+                set('hour', value);
+                setWhenOpen(false);
+              }}
               live={live}
             />
           )}
@@ -278,6 +312,34 @@ export const FilterBar = ({
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div role="group" aria-label={t.seasonal}>
+            <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+              {t.seasonal}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                aria-pressed={filter.monthStatus === 'new'}
+                onClick={() =>
+                  set('monthStatus', filter.monthStatus === 'new' ? 'all' : 'new')
+                }
+                className={chipClass(filter.monthStatus === 'new')}
+              >
+                {t.newThisMonth}
+              </button>
+              <button
+                type="button"
+                aria-pressed={filter.monthStatus === 'leaving'}
+                onClick={() =>
+                  set('monthStatus', filter.monthStatus === 'leaving' ? 'all' : 'leaving')
+                }
+                className={chipClass(filter.monthStatus === 'leaving')}
+              >
+                {t.leavingThisMonth}
+              </button>
             </div>
           </div>
 

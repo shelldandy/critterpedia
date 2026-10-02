@@ -78,7 +78,7 @@ export const CritterDetail = ({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      className="w-[calc(100%-2rem)] max-w-xl rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      className="fixed top-1/2 left-1/2 m-0 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     >
       <div className="flex items-start gap-4 p-5 pb-3">
         <IconWithFallback

@@ -6,7 +6,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 const chipClass = (selected: boolean): string =>
-  `rounded-lg border px-2.5 py-1.5 text-xs font-medium tabular-nums transition-colors ${
+  `inline-flex min-w-14 items-center justify-center whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-medium tabular-nums transition-colors ${
     selected
       ? 'border-accent-600 bg-accent-600 text-white'
       : 'border-slate-300 bg-white text-slate-600 hover:border-accent-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400'
@@ -70,7 +70,7 @@ export const WhenPicker = ({
         <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
           {t.hour}
         </p>
-        <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
+        <div className="flex flex-wrap gap-1.5">
           <button type="button" aria-pressed={hour === 'current'} onClick={() => onHourChange('current')} className={chipClass(hour === 'current')}>
             {t.current}
           </button>

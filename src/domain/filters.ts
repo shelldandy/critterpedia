@@ -18,6 +18,8 @@ import type { Messages } from '../i18n/messages.ts';
 import {
   isAvailableAt,
   isAllDay,
+  isLeavingAfterThisMonth,
+  isNewThisMonth,
   isYearRound,
   monthOf,
   windowFor,
@@ -26,6 +28,8 @@ import { compareUrgencyIn, urgencyOf, type Urgency } from './urgency.ts';
 
 /** `'now'` hides unavailable entries; `'all'` preserves the stable full grid. */
 export type Scope = 'now' | 'all';
+
+export type MonthStatus = 'all' | 'new' | 'leaving';
 
 export type TimeSel = number | 'current' | 'any';
 
@@ -49,6 +53,8 @@ export interface CritterFilter {
   weathers: Set<Weather>;
   month: TimeSel;
   hour: TimeSel;
+  /** Restrict results to critters newly available or leaving in the current month. */
+  monthStatus: MonthStatus;
   sort: SortKey;
 }
 
@@ -61,6 +67,7 @@ export const EMPTY_FILTER: CritterFilter = {
   weathers: new Set(),
   month: 'current',
   hour: 'current',
+  monthStatus: 'all',
   sort: 'number',
 };
 
@@ -85,7 +92,8 @@ export const isFilterActive = (f: CritterFilter): boolean =>
   f.whereGroups.size > 0 ||
   f.weathers.size > 0 ||
   f.month !== 'current' ||
-  f.hour !== 'current';
+  f.hour !== 'current' ||
+  f.monthStatus !== 'all';
 
 export const activeFilterCount = (f: CritterFilter): number =>
   (f.query.trim() === '' ? 0 : 1) +
@@ -94,7 +102,8 @@ export const activeFilterCount = (f: CritterFilter): number =>
   f.whereGroups.size +
   f.weathers.size +
   (f.month === 'current' ? 0 : 1) +
-  (f.hour === 'current' ? 0 : 1);
+  (f.hour === 'current' ? 0 : 1) +
+  (f.monthStatus === 'all' ? 0 : 1);
 
 /**
  * An empty set is "unconstrained", not "exclude everything" — a bug (which has no shadow
@@ -127,6 +136,15 @@ export const matchesFilter = (c: Critter, f: CritterFilter): boolean =>
   passesSet(f.whereGroups, c.whereGroup) &&
   passesSet(f.weathers, c.weather) &&
   matchesQuery(c, f.query);
+
+const matchesMonthStatus = (
+  c: Critter,
+  status: MonthStatus,
+  now: Date,
+  hemi: Hemisphere,
+): boolean =>
+  status === 'all' ||
+  (status === 'new' ? isNewThisMonth(c, now, hemi) : isLeavingAfterThisMonth(c, now, hemi));
 
 const SHADOW_RAMP: readonly Shadow[] = [
   'X-Small',
@@ -235,6 +253,7 @@ export const selectCritters = (
   const pool = f.scope === 'now' ? critters.filter(availableAt) : critters;
   const items = pool
     .filter((c) => matchesFilter(c, f))
+    .filter((c) => matchesMonthStatus(c, f.monthStatus, now, hemi))
     .map((c): SelectedCritter => ({
       ...(when.isLive ? urgencyOf(c, now, hemi) : staticUrgency(c, hemi)),
       available: availableAt(c),
