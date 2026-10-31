@@ -94,7 +94,7 @@ export const Header = ({ now }: { now: Date }) => {
             aria-expanded={monthPickerOpen}
             aria-controls={monthPickerId}
             onClick={() => setMonthPickerOpen((open) => !open)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:border-accent-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs capitalize text-slate-700 hover:border-accent-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
           >
             {monthFormatter.format(now)}
             <span aria-hidden>▾</span>
@@ -114,7 +114,7 @@ export const Header = ({ now }: { now: Date }) => {
                     autoFocus={now.getMonth() + 1 === month}
                     aria-pressed={now.getMonth() + 1 === month}
                     onClick={() => selectMonth(month)}
-                    className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                    className={`rounded-lg border px-2 py-2 text-xs font-medium capitalize transition-colors ${
                       now.getMonth() + 1 === month
                         ? 'border-accent-600 bg-accent-600 text-white'
                         : 'border-slate-300 bg-white text-slate-600 hover:border-accent-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400'
