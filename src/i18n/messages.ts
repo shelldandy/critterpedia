@@ -111,9 +111,9 @@ const en: Messages = {
   hemisphere: 'Hemisphere',
   north: 'North',
   south: 'South',
-  overrideTime: 'Override the current time',
+  overrideTime: 'Choose a month',
   resetToNow: 'Now',
-  customTimeNotice: 'Showing a custom time, not the current one.',
+  customTimeNotice: 'Showing a custom month, not the current one.',
 
   searchLabel: 'Search critters by name or location',
   searchPlaceholder: 'Search name or location…',
@@ -194,9 +194,9 @@ const es: Messages = {
   hemisphere: 'Hemisferio',
   north: 'Norte',
   south: 'Sur',
-  overrideTime: 'Cambiar la hora actual',
+  overrideTime: 'Elegir un mes',
   resetToNow: 'Ahora',
-  customTimeNotice: 'Se muestra una hora personalizada, no la actual.',
+  customTimeNotice: 'Se muestra un mes personalizado, no el mes actual.',
 
   searchLabel: 'Buscar criaturas por nombre o ubicación',
   searchPlaceholder: 'Buscar nombre o ubicación…',
