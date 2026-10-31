@@ -94,7 +94,7 @@ export const Header = ({ now }: { now: Date }) => {
             aria-expanded={monthPickerOpen}
             aria-controls={monthPickerId}
             onClick={() => setMonthPickerOpen((open) => !open)}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs capitalize text-slate-700 hover:border-accent-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs capitalize text-slate-700 hover:border-accent-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
           >
             {monthFormatter.format(now)}
             <span aria-hidden>▾</span>
