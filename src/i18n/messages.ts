@@ -24,17 +24,25 @@ export interface Messages {
   // Filter bar
   searchLabel: string;
   searchPlaceholder: string;
+  scope: string;
+  scopeNow: string;
+  scopeAll: string;
   kind: string;
   kindAll: string;
   kindFish: string;
   kindBugs: string;
   kindSea: string;
+  when: string;
   month: string;
   hour: string;
+  current: string;
+  any: string;
   close: string;
+  hideUnavailable: string;
   seasonal: string;
   newThisMonth: string;
   leavingThisMonth: string;
+  customWhenNotice: string;
   filters: string;
   clearFilters: string;
   sort: string;
@@ -94,6 +102,7 @@ export interface Messages {
      The two `…Suffix` forms take the count for agreement but do NOT render it — the count is
      rendered separately so it keeps its own emphasis styling. */
   hoursLeftToday: (h: number) => string;
+  catchableNowSuffix: (n: number, filtered: boolean) => string;
   critterCountSuffix: (n: number, filtered: boolean) => string;
 }
 
@@ -108,17 +117,25 @@ const en: Messages = {
 
   searchLabel: 'Search critters by name or location',
   searchPlaceholder: 'Search name or location…',
+  scope: 'Scope',
+  scopeNow: 'Now',
+  scopeAll: 'All critters',
   kind: 'Kind',
   kindAll: 'All',
   kindFish: 'Fish',
   kindBugs: 'Bugs',
   kindSea: 'Sea',
+  when: 'When',
   month: 'Month',
   hour: 'Hour',
+  current: 'Current',
+  any: 'Any',
   close: 'Close',
+  hideUnavailable: 'Hide unavailable',
   seasonal: 'Seasonal',
   newThisMonth: 'New this month',
   leavingThisMonth: 'Leaving this month',
+  customWhenNotice: 'Showing a custom month and hour, not the current ones.',
   filters: 'Filters',
   clearFilters: 'Clear filters',
   sort: 'Sort',
@@ -167,6 +184,7 @@ const en: Messages = {
     '(CC BY 4.0). Images © Nintendo, used non-commercially. Not affiliated with Nintendo.',
 
   hoursLeftToday: (h) => `${h}h left today`,
+  catchableNowSuffix: (_n, filtered) => `catchable right now${filtered ? ' (filtered)' : ''}`,
   critterCountSuffix: (n, filtered) =>
     `${n === 1 ? 'critter' : 'critters'}${filtered ? ' (filtered)' : ''}`,
 };
@@ -182,17 +200,25 @@ const es: Messages = {
 
   searchLabel: 'Buscar criaturas por nombre o ubicación',
   searchPlaceholder: 'Buscar nombre o ubicación…',
+  scope: 'Alcance',
+  scopeNow: 'Ahora',
+  scopeAll: 'Todas',
   kind: 'Tipo',
   kindAll: 'Todos',
   kindFish: 'Peces',
   kindBugs: 'Bichos',
   kindSea: 'Marinos',
+  when: 'Cuándo',
   month: 'Mes',
   hour: 'Hora',
+  current: 'Actual',
+  any: 'Cualquiera',
   close: 'Cerrar',
+  hideUnavailable: 'Ocultar no disponibles',
   seasonal: 'Temporada',
   newThisMonth: 'Nuevas este mes',
   leavingThisMonth: 'Se van este mes',
+  customWhenNotice: 'Se muestra un mes y una hora personalizados, no los actuales.',
   filters: 'Filtros',
   clearFilters: 'Quitar filtros',
   sort: 'Ordenar',
@@ -241,6 +267,8 @@ const es: Messages = {
     '(CC BY 4.0). Imágenes © Nintendo, uso no comercial. Sin afiliación con Nintendo.',
 
   hoursLeftToday: (h) => `quedan ${h} h hoy`,
+  catchableNowSuffix: (n, filtered) =>
+    `${n === 1 ? 'disponible' : 'disponibles'} ahora${filtered ? ' (filtrado)' : ''}`,
   critterCountSuffix: (n, filtered) =>
     `${n === 1 ? 'criatura' : 'criaturas'}${filtered ? ' (filtrado)' : ''}`,
 };

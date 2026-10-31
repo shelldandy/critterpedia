@@ -127,8 +127,8 @@ describe('no hardcoded user-facing strings in components', () => {
   });
 
   /**
-   * Label-ish object/array literals (`label: 'Fish'`) — where English can sit in a const far
-   * from the JSX.
+   * Label-ish object/array literals (`label: 'Fish'`) — the shape the kind and scope lists
+   * originally used, where the English sat in a const far from the JSX.
    */
   it('has no label-like string literals in component constants', () => {
     const offenders: string[] = [];

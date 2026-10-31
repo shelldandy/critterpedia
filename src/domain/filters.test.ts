@@ -4,11 +4,11 @@ import { CRITTERS } from '../data/critters.ts';
 import type { Kind, Shadow, Weather, WhereGroup } from '../data/types.ts';
 import {
   isAvailableAt,
+  isAvailableNow,
   isLeavingAfterThisMonth,
   isNewThisMonth,
 } from './availability.ts';
 import {
-  ANY_WHEN,
   EMPTY_FILTER,
   activeFilterCount,
   isFilterActive,
@@ -93,7 +93,7 @@ describe('matchesFilter', () => {
   });
 
   it('searches name and location, case-insensitively', () => {
-    expect(names(selectCritters(CRITTERS, filter({ query: 'CoElaC' }), at(6, 1, 12), 'north'))).toContain(
+    expect(names(selectCritters(CRITTERS, filter({ scope: 'all', query: 'CoElaC' }), at(6, 1, 12), 'north'))).toContain(
       'coelacanth',
     );
     const pier = CRITTERS.filter((c) => matchesFilter(c, filter({ query: 'pier' })));
@@ -143,7 +143,7 @@ describe('language-aware sorting', () => {
   const at2 = (m: number, d: number, h: number) => at(m, d, h);
 
   it('sorts by the displayed language, not always by English', () => {
-    const f = filter({ sort: 'name' });
+    const f = filter({ scope: 'all', sort: 'name' });
     const es = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'es');
     const en = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'en');
 
@@ -155,7 +155,7 @@ describe('language-aware sorting', () => {
   it('produces a correctly collated Spanish A–Z order', () => {
     const es = selectCritters(
       CRITTERS,
-      filter({ sort: 'name' }),
+      filter({ scope: 'all', sort: 'name' }),
       at2(6, 1, 12),
       'north',
       'es',
@@ -166,7 +166,7 @@ describe('language-aware sorting', () => {
   });
 
   it('defaults to English when no language is passed', () => {
-    const f = filter({ sort: 'name' });
+    const f = filter({ scope: 'all', sort: 'name' });
     expect(selectCritters(CRITTERS, f, at2(6, 1, 12), 'north')).toEqual(
       selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'en'),
     );
@@ -174,7 +174,7 @@ describe('language-aware sorting', () => {
 
   it('keeps a total, stable order in Spanish for a sort with many ties', () => {
     // Price ties are the case the name tiebreak exists for; it must not reintroduce shuffle.
-    const f = filter({ sort: 'sell-desc' });
+    const f = filter({ scope: 'all', sort: 'sell-desc' });
     const a = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'es');
     const b = selectCritters(CRITTERS, f, at2(6, 1, 12), 'north', 'es');
     expect(a.map((u) => u.critter.id)).toEqual(b.map((u) => u.critter.id));
@@ -208,17 +208,45 @@ describe('shadowRank', () => {
   });
 });
 
-describe('selectCritters — availability', () => {
+describe('selectCritters — scope', () => {
   const now = at(7, 15, 21);
 
-  it('uses Any for the availability context', () => {
-    expect(ANY_WHEN).toEqual({ month: 'any', hour: 'any', isLive: false });
+  it('scope "now" returns exactly what the availability engine says is catchable', () => {
+    const got = selectCritters(CRITTERS, filter({ scope: 'now' }), now, 'north');
+    const expected = CRITTERS.filter((c) => isAvailableNow(c, now, 'north'));
+    expect(got).toHaveLength(expected.length);
+    expect(got.every((u) => isAvailableNow(u.critter, now, 'north'))).toBe(true);
   });
 
-  it('defaults to the full grid with every critter available for Any month/hour', () => {
+  it('scope "all" returns the whole dataset', () => {
+    expect(selectCritters(CRITTERS, filter({ scope: 'all' }), now, 'north')).toHaveLength(
+      200,
+    );
+  });
+
+  it('respects hemisphere when scoping to now', () => {
+    const north = selectCritters(CRITTERS, filter({ scope: 'now' }), now, 'north');
+    const south = selectCritters(CRITTERS, filter({ scope: 'now' }), now, 'south');
+    expect(names(north)).not.toEqual(names(south));
+  });
+
+  it('defaults to the full stable grid with live availability flags', () => {
     const got = selectCritters(CRITTERS, EMPTY_FILTER, now, 'north');
     expect(got).toHaveLength(200);
-    expect(got.every((u) => u.available === isAvailableAt(u.critter, 'any', 'any', 'north'))).toBe(
+    expect(got.every((u) => u.available === isAvailableNow(u.critter, now, 'north'))).toBe(
+      true,
+    );
+  });
+
+  it('supports a custom month/hour and marks unavailable entries instead of removing them', () => {
+    const got = selectCritters(
+      CRITTERS,
+      filter({ month: 7, hour: 18 }),
+      now,
+      'north',
+    );
+    expect(got).toHaveLength(200);
+    expect(got.every((u) => u.available === isAvailableAt(u.critter, 7, 18, 'north'))).toBe(
       true,
     );
   });
@@ -253,7 +281,7 @@ describe('selectCritters — availability', () => {
 describe('selectCritters — sorting', () => {
   const now = at(7, 15, 21);
   const all = (sort: CritterFilter['sort']) =>
-    selectCritters(CRITTERS, filter({ sort }), now, 'north');
+    selectCritters(CRITTERS, filter({ scope: 'all', sort }), now, 'north');
 
   it('sorts by price descending and ascending', () => {
     const desc = all('sell-desc').map((u) => u.critter.sell);
@@ -303,15 +331,16 @@ describe('selectCritters — sorting', () => {
   });
 
   it('keeps urgency as a flat sort without urgency bands', () => {
-    const got = selectCritters(CRITTERS, filter({ sort: 'urgency' }), now, 'north');
+    const got = selectCritters(CRITTERS, filter({ scope: 'now', sort: 'urgency' }), now, 'north');
     expect(got.length).toBeGreaterThan(0);
     expect(got.every((u) => u.available)).toBe(true);
   });
 });
 
 describe('filter bookkeeping', () => {
-  it('reports an empty filter as inactive', () => {
+  it('reports an empty filter as inactive, and scope alone does not activate it', () => {
     expect(isFilterActive(EMPTY_FILTER)).toBe(false);
+    expect(isFilterActive(filter({ scope: 'all' }))).toBe(false);
     expect(activeFilterCount(EMPTY_FILTER)).toBe(0);
   });
 
@@ -326,10 +355,12 @@ describe('filter bookkeeping', () => {
     expect(activeFilterCount(filter({ query: '  ' }))).toBe(0);
   });
 
-  it('counts seasonal month status as an active filter', () => {
-    expect(isFilterActive(EMPTY_FILTER)).toBe(false);
-    expect(activeFilterCount(EMPTY_FILTER)).toBe(0);
+  it('counts custom month and hour selections as active filters', () => {
+    expect(isFilterActive(filter({ month: 7 }))).toBe(true);
+    expect(activeFilterCount(filter({ month: 7, hour: 21 }))).toBe(2);
+    expect(isFilterActive(filter({ month: 'any', hour: 'any' }))).toBe(true);
     expect(isFilterActive(filter({ monthStatus: 'new' }))).toBe(true);
     expect(activeFilterCount(filter({ monthStatus: 'leaving' }))).toBe(1);
+    expect(isFilterActive(EMPTY_FILTER)).toBe(false);
   });
 });

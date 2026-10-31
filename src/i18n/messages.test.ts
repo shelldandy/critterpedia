@@ -49,4 +49,10 @@ describe('message catalog', () => {
     expect(messagesFor('en').critterCountSuffix(5, true)).toContain('(filtered)');
     expect(messagesFor('es').critterCountSuffix(5, true)).toContain('(filtrado)');
   });
+
+  it('agrees in number for the "catchable now" phrasing in Spanish', () => {
+    const es = messagesFor('es');
+    expect(es.catchableNowSuffix(1, false)).toContain('disponible');
+    expect(es.catchableNowSuffix(3, false)).toContain('disponibles');
+  });
 });
