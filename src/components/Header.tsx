@@ -4,11 +4,11 @@ import { LangPicker } from './LangPicker.tsx';
 import { SchemePicker } from './SchemePicker.tsx';
 import { ThemePicker } from './ThemePicker.tsx';
 
-/** `<input type="datetime-local">` wants local wall-clock time, not a UTC ISO string. */
-const toLocalInput = (d: Date): string => {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+const toLocalMonth = (d: Date): string => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+const atMonth = (month: string, now: Date): string =>
+  `${month}-01T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
 export const Header = ({ now }: { now: Date }) => {
   const { hemisphere, clockOverride, setHemisphere, setClockOverride } = useSettings();
@@ -53,10 +53,12 @@ export const Header = ({ now }: { now: Date }) => {
 
         <div className="flex items-center gap-1.5">
           <input
-            type="datetime-local"
+            type="month"
             aria-label={t.overrideTime}
-            value={toLocalInput(now)}
-            onChange={(e) => setClockOverride(e.target.value || null)}
+            value={toLocalMonth(now)}
+            onChange={(e) =>
+              setClockOverride(e.target.value ? atMonth(e.target.value, now) : null)
+            }
             className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
           />
           {clockOverride && (
