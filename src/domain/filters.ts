@@ -21,17 +21,11 @@ import {
   isLeavingAfterThisMonth,
   isNewThisMonth,
   isYearRound,
-  monthOf,
   windowFor,
 } from './availability.ts';
-import { compareUrgencyIn, urgencyOf, type Urgency } from './urgency.ts';
-
-/** `'now'` hides unavailable entries; `'all'` preserves the stable full grid. */
-export type Scope = 'now' | 'all';
+import { compareUrgencyIn, type Urgency } from './urgency.ts';
 
 export type MonthStatus = 'all' | 'new' | 'leaving';
-
-export type TimeSel = number | 'current' | 'any';
 
 export type SortKey =
   | 'number'
@@ -43,7 +37,6 @@ export type SortKey =
   | 'rarity';
 
 export interface CritterFilter {
-  scope: Scope;
   /** Free text over name and location. Empty means no text constraint. */
   query: string;
   /** Empty set means "no kind constraint" — never means "show nothing". */
@@ -51,48 +44,37 @@ export interface CritterFilter {
   shadows: Set<Shadow>;
   whereGroups: Set<WhereGroup>;
   weathers: Set<Weather>;
-  month: TimeSel;
-  hour: TimeSel;
   /** Restrict results to critters newly available or leaving in the current month. */
   monthStatus: MonthStatus;
   sort: SortKey;
 }
 
 export const EMPTY_FILTER: CritterFilter = {
-  scope: 'all',
   query: '',
   kinds: new Set(),
   shadows: new Set(),
   whereGroups: new Set(),
   weathers: new Set(),
-  month: 'current',
-  hour: 'current',
   monthStatus: 'all',
   sort: 'number',
 };
 
-/** The month/hour represented by a filter, plus whether urgency is safe to show. */
 export interface ResolvedWhen {
   month: number | 'any';
   hour: number | 'any';
   isLive: boolean;
 }
 
-export const resolveWhen = (f: CritterFilter, now: Date): ResolvedWhen => ({
-  month: f.month === 'current' ? monthOf(now) : f.month,
-  hour: f.hour === 'current' ? now.getHours() : f.hour,
-  isLive: f.month === 'current' && f.hour === 'current',
-});
+/** No specific month/hour is selected for availability or urgency. */
+export const ANY_WHEN: ResolvedWhen = { month: 'any', hour: 'any', isLive: false };
 
-/** True when the filter would show a subset beyond its scope choice. */
+/** True when the filter would show a subset of the full critter list. */
 export const isFilterActive = (f: CritterFilter): boolean =>
   f.query.trim() !== '' ||
   f.kinds.size > 0 ||
   f.shadows.size > 0 ||
   f.whereGroups.size > 0 ||
   f.weathers.size > 0 ||
-  f.month !== 'current' ||
-  f.hour !== 'current' ||
   f.monthStatus !== 'all';
 
 export const activeFilterCount = (f: CritterFilter): number =>
@@ -101,8 +83,6 @@ export const activeFilterCount = (f: CritterFilter): number =>
   f.shadows.size +
   f.whereGroups.size +
   f.weathers.size +
-  (f.month === 'current' ? 0 : 1) +
-  (f.hour === 'current' ? 0 : 1) +
   (f.monthStatus === 'all' ? 0 : 1);
 
 /**
@@ -233,12 +213,7 @@ export interface SelectedCritter extends Urgency {
   available: boolean;
 }
 
-/**
- * The one entry point the UI calls: resolve time → scope → filter → rank.
- *
- * The default is a full, stable grid with `available` flags. A custom month/hour is never
- * allowed to produce a misleading "leaving soon" urgency signal.
- */
+/** The one entry point the UI calls: apply filters → rank. */
 export const selectCritters = (
   critters: readonly Critter[],
   f: CritterFilter,
@@ -246,17 +221,12 @@ export const selectCritters = (
   hemi: Hemisphere,
   lang: Lang = DEFAULT_LANG,
 ): SelectedCritter[] => {
-  const when = resolveWhen(f, now);
-  const availableAt = (c: Critter): boolean =>
-    isAvailableAt(c, when.month, when.hour, hemi);
-
-  const pool = f.scope === 'now' ? critters.filter(availableAt) : critters;
-  const items = pool
+  const items = critters
     .filter((c) => matchesFilter(c, f))
     .filter((c) => matchesMonthStatus(c, f.monthStatus, now, hemi))
     .map((c): SelectedCritter => ({
-      ...(when.isLive ? urgencyOf(c, now, hemi) : staticUrgency(c, hemi)),
-      available: availableAt(c),
+      ...staticUrgency(c, hemi),
+      available: isAvailableAt(c, ANY_WHEN.month, ANY_WHEN.hour, hemi),
     }));
 
   return items.sort(comparatorsFor(lang)[f.sort]);

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 
 import type { Kind, Shadow, Weather, WhereGroup } from '../data/types.ts';
 import {
@@ -8,12 +8,10 @@ import {
   sortLabels,
   type CritterFilter,
   type SortKey,
-  type TimeSel,
 } from '../domain/filters.ts';
 import { shadowLabel, weatherLabel, whereGroupLabel } from '../i18n/critterTerms.ts';
 import { localeOf } from '../i18n/lang.ts';
 import { useMessages } from '../i18n/useMessages.ts';
-import { WhenPicker } from './WhenPicker.tsx';
 import { KIND_BACKGROUND } from './kindStyles.ts';
 
 const KIND_KEYS: readonly Kind[] = ['fish', 'bug', 'sea'];
@@ -90,21 +88,13 @@ const ChipGroup = <T extends string>({
   </div>
 );
 
-const Icon = ({ type }: { type: 'all' | Kind | 'calendar' | 'filter' }) => {
+const Icon = ({ type }: { type: 'all' | Kind | 'filter' }) => {
   if (type === 'all') {
     return <span aria-hidden className="text-xl leading-none">✦</span>;
   }
   if (type === 'fish') return <span aria-hidden className="text-xl leading-none">🐟</span>;
   if (type === 'bug') return <span aria-hidden className="text-xl leading-none">🐞</span>;
   if (type === 'sea') return <span aria-hidden className="text-xl leading-none">🐚</span>;
-  if (type === 'calendar') {
-    return (
-      <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="3" y="4.5" width="18" height="16" rx="2" />
-        <path d="M7 3v3M17 3v3M3 9h18" />
-      </svg>
-    );
-  }
   return (
     <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M4 5h16l-6.2 7.1V18l-3.6 1.8v-7.7L4 5Z" />
@@ -112,39 +102,18 @@ const Icon = ({ type }: { type: 'all' | Kind | 'calendar' | 'filter' }) => {
   );
 };
 
-const whenSummary = (filter: CritterFilter, now: Date, lang: Parameters<typeof localeOf>[0], t: ReturnType<typeof useMessages>['t']): string => {
-  const locale = localeOf(lang);
-  const month =
-    filter.month === 'any'
-      ? t.any
-      : new Intl.DateTimeFormat(locale, { month: 'short' }).format(
-          new Date(2020, (filter.month === 'current' ? now.getMonth() : filter.month - 1), 1),
-        );
-  const hour =
-    filter.hour === 'any'
-      ? t.any
-      : new Intl.DateTimeFormat(locale, { hour: 'numeric' }).format(
-          new Date(2020, 0, 1, filter.hour === 'current' ? now.getHours() : filter.hour),
-        );
-  return `${month} · ${hour}`;
-};
-
 export const FilterBar = ({
   filter,
   onChange,
   onClear,
   resultCount,
-  now,
 }: {
   filter: CritterFilter;
   onChange: (next: CritterFilter) => void;
   onClear: () => void;
   resultCount: number;
-  now: Date;
 }) => {
   const [open, setOpen] = useState(false);
-  const [whenOpen, setWhenOpen] = useState(false);
-  const whenPickerRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
   const sortId = useId();
   const { t, lang } = useMessages();
@@ -159,28 +128,7 @@ export const FilterBar = ({
     filter.shadows.size +
     filter.whereGroups.size +
     filter.weathers.size +
-    (filter.month === 'current' ? 0 : 1) +
-    (filter.hour === 'current' ? 0 : 1) +
     (filter.monthStatus === 'all' ? 0 : 1);
-  const live = filter.month === 'current' && filter.hour === 'current';
-
-  useEffect(() => {
-    if (!whenOpen) return;
-
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!whenPickerRef.current?.contains(event.target as Node)) setWhenOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setWhenOpen(false);
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [whenOpen]);
 
   const set = <K extends keyof CritterFilter>(key: K, value: CritterFilter[K]) =>
     onChange({ ...filter, [key]: value });
@@ -217,53 +165,22 @@ export const FilterBar = ({
           ))}
         </div>
 
-        <div ref={whenPickerRef} className="relative ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            aria-label={t.when}
-            aria-expanded={whenOpen}
-            onClick={() => setWhenOpen((value) => !value)}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium ${
-              !live
-                ? 'border-accent-600 bg-accent-50 text-accent-700 dark:bg-slate-800 dark:text-accent-500'
-                : 'border-slate-300 bg-white text-slate-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400'
-            }`}
-          >
-            <Icon type="calendar" />
-            <span>{live ? t.when : whenSummary(filter, now, lang, t)}</span>
-          </button>
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={() => setOpen((value) => !value)}
-            className={`inline-flex items-center ${chipClass(open || secondaryActive > 0, 'py-2')}`}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Icon type="filter" />
-              {t.filters}
-              {activeCount > 0 && (
-                <span className="rounded-full bg-accent-600 px-1.5 text-[10px] text-white">
-                  {activeCount}
-                </span>
-              )}
-            </span>
-          </button>
-          {whenOpen && (
-            <WhenPicker
-              month={filter.month}
-              hour={filter.hour}
-              onMonthChange={(value: TimeSel) => {
-                set('month', value);
-                setWhenOpen(false);
-              }}
-              onHourChange={(value: TimeSel) => {
-                set('hour', value);
-                setWhenOpen(false);
-              }}
-              live={live}
-            />
-          )}
-        </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className={`ml-auto inline-flex items-center ${chipClass(open || secondaryActive > 0, 'py-2')}`}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Icon type="filter" />
+            {t.filters}
+            {activeCount > 0 && (
+              <span className="rounded-full bg-accent-600 px-1.5 text-[10px] text-white">
+                {activeCount}
+              </span>
+            )}
+          </span>
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -284,15 +201,7 @@ export const FilterBar = ({
 
       {open && (
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-            <button
-              type="button"
-              aria-pressed={filter.scope === 'now'}
-              onClick={() => set('scope', filter.scope === 'now' ? 'all' : 'now')}
-              className={chipClass(filter.scope === 'now')}
-            >
-              {t.hideUnavailable}
-            </button>
+          <div className="flex flex-wrap items-center justify-end gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
             <div className="flex items-center gap-1.5">
               <label
                 htmlFor={sortId}
@@ -397,9 +306,7 @@ export const FilterBar = ({
           <span className="font-semibold text-slate-900 dark:text-slate-100">
             {resultCount.toLocaleString(localeOf(lang))}
           </span>{' '}
-          {filter.scope === 'now' && live
-            ? t.catchableNowSuffix(resultCount, isFilterActive(filter))
-            : t.critterCountSuffix(resultCount, isFilterActive(filter))}
+          {t.critterCountSuffix(resultCount, isFilterActive(filter))}
         </p>
         {isFilterActive(filter) && (
           <button

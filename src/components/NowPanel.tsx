@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react';
 import { CRITTERS } from '../data/critters.ts';
 import type { Hemisphere } from '../data/types.ts';
 import {
+  ANY_WHEN,
   EMPTY_FILTER,
   isFilterActive,
-  resolveWhen,
   selectCritters,
   type CritterFilter,
   type SelectedCritter,
@@ -56,10 +56,9 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
     () => selectCritters(CRITTERS, filter, now, hemisphere, lang),
     [filter, now, hemisphere, lang],
   );
-  const when = useMemo(() => resolveWhen(filter, now), [filter, now]);
+  const when = ANY_WHEN;
 
-  const clear = () =>
-    setFilter((current) => ({ ...EMPTY_FILTER, scope: current.scope, sort: current.sort }));
+  const clear = () => setFilter((current) => ({ ...EMPTY_FILTER, sort: current.sort }));
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-4">
@@ -68,7 +67,6 @@ export const NowPanel = ({ now, hemisphere }: { now: Date; hemisphere: Hemispher
         onChange={setFilter}
         onClear={clear}
         resultCount={visible.length}
-        now={now}
       />
 
       {visible.length === 0 && <EmptyState filter={filter} />}
